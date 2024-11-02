@@ -2,7 +2,7 @@ import fitz
 import re
 
 financial_keywords = r"\b(Financial Highlights|Summary of Consolidated Quarterly Results|Major Cash Flow Components)\b"
-financial_data_pattern = r"\$\s?\d+(,\d{3})*(\.\d+)?|\d{1,3}(,\d{3})+"
+financial_data_pattern = r"\b\d{1,3}(?:[ ,]\d{3})*(?:\.\d{1,2})?(?:[%]|(?:\$|€|¥|£)?)\b"
 
 def extract_financial_pages(pdf_path, output_pdf_path):
     doc = fitz.open(pdf_path)
@@ -12,7 +12,7 @@ def extract_financial_pages(pdf_path, output_pdf_path):
         page = doc[page_num]
         text = page.get_text("text")
         
-        if re.search(financial_data_pattern, text):
+        if len(re.findall(financial_data_pattern, text)) > 30:
             financial_pages.append(page_num) 
 
     
@@ -29,4 +29,4 @@ def extract_financial_pages(pdf_path, output_pdf_path):
 
     doc.close()
 
-extract_financial_pages("doc-financier-cn-2023.pdf", "financial_data_scraped.pdf")
+extract_financial_pages("CP_AnnualReport2020_SECURED.pdf", "financial_data_scraped2.pdf")
