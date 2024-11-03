@@ -24,10 +24,6 @@ const MainRoutes = {
       element: <HeroPage />
     },
     {
-      path: 'color',
-      element: <Color />
-    },
-    {
       path: 'upload',
       element: <Dashboard />,
       children: [
@@ -45,9 +41,6 @@ const MainRoutes = {
           path: '',
           element: <DashboardDefault />
         },
-        {
-          path
-        }
       ]
     },
     {
