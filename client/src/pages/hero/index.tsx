@@ -105,7 +105,7 @@ const HeroPage = () => {
                 transition={{ delay: 0.3 }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center space-x-2 group shadow-lg shadow-blue-500/20"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center space-x-2 group shadow-lg shadow-blue-500/20 cursor-pointer"
               >
                 <span>Get Started</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -136,6 +136,7 @@ const HeroPage = () => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-lg text-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center space-x-2 shadow-lg shadow-blue-500/20"
+                  onClick={() => (window.location.href = 'upload')}
                 >
                   <Upload className="w-5 h-5" />
                   <span>Upload Reports</span>

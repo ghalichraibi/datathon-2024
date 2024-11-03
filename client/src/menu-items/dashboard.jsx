@@ -1,9 +1,10 @@
 // assets
-import { DashboardOutlined } from '@ant-design/icons';
+import { DashboardOutlined, UploadOutlined } from '@ant-design/icons';
 
 // icons
 const icons = {
-  DashboardOutlined
+  DashboardOutlined,
+  UploadOutlined
 };
 
 // ==============================|| MENU ITEMS - DASHBOARD ||============================== //
@@ -13,11 +14,19 @@ const dashboard = {
   title: 'Navigation',
   type: 'group',
   children: [
+    { 
+      id: 'upload',
+      title: 'My Reports',
+      type: 'item',
+      url: '/upload',
+      icon: icons.UploadOutlined,
+      breadcrumbs: false
+    },
     {
       id: 'dashboard',
       title: 'Dashboard',
       type: 'item',
-      url: '/dashboard/default',
+      url: '/dashboard',
       icon: icons.DashboardOutlined,
       breadcrumbs: false
     }
