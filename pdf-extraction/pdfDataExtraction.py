@@ -1,6 +1,8 @@
 import boto3
 import json
 import fitz
+from marker.convert import convert_single_pdf
+from marker.models import load_all_models
 
 session = boto3.Session(
     aws_access_key_id='ASIA5HE2WWPH2RKKMPHN',
@@ -11,60 +13,35 @@ session = boto3.Session(
 
 client = session.client('bedrock-runtime')
 
-csv_template = """
+json_template = """
+ {
+    'Company Name': ,
+    'Fiscal Year': ,
+    'Report Date': ,
+    'Currency': ,
+    'Summary': ,
+    'Total earnings':,
+    'Total Net Income': ,
+    'Total Operating Income': ,
+    'Total Expenses': ,
+    'Cost of Goods Sold (COGS)': ,
+    'Selling, General, and Administrative (SG&A)': ,
+    'Research and Development (R&D)': ,
+    'Depreciation and Amortization': ,
+    'Interest Expense': ,
+    'Other Expenses': ,
+    'Total Debt': ,
+    'Debt-to-Equity Ratio': ,
+    'Long-Term Debt': ,
+    'Short-Term Debt': ,
+    'Total Equity': ,
+    'Gross Profit Margin': ,
+    'Operating Profit Margin': ,
+    'Net Profit Margin': ,
+    'Return on Assets (ROA)': ,
+    'Return on Equity (ROE)': ,
+}
 
-## 2. Revenue
-
-- **Total Net Income**
-
-- **Total Operating Income**
----
-
-- **Total Expenses**
-
----
-
-- **Total EBITDA**
-
----
-
-- **Total Cash Flow**
-
----
-
-## 8. Debt and Equity
-- **Total Debt**
-- **Debt-to-Equity Ratio**
-- **Long-Term Debt**
-- **Short-Term Debt**
-- **Total Equity**
-
----
-
-## 9. Profitability Ratios
-- **Gross Profit Margin**
-- **Operating Profit Margin**
-- **Net Profit Margin**
-- **Return on Assets (ROA)**
-- **Return on Equity (ROE)**
-
----
-
-## 10. Forecasted Metrics (for Prediction Functionality)
-- **Forecasted Revenue** (next quarter)
-- **Forecasted Net Income** (next quarter)
-- **Forecasted Operating Expenses** (next quarter)
-- **Forecasted Cash Flow** (next quarter)
-- **Forecasted EBITDA** (next quarter)
-
----
-
-## 11. Competitor Comparison
-- **Top 3 Competitors** (each competitor will have sub-fields, structured as follows)
-  - **Competitor 1**
-    - **Revenue**
-    - **Net Income**
-    - **Operating Incom
 """
 
 client = session.client('bedrock-runtime')
@@ -75,15 +52,15 @@ def get_competitors_from_bedrock(summary):
 
     # Construct the prompt with "Human:" prefix as required by Claude
     prompt_text = (
-        f"Human: Fill the following CSV template, with values found in the company financial report.\n\n"
+        f"Human: Fill the following json template with values found in the company financial report. Your response should not contain anything else than the filled out template. If you cannot find a value, put a null value in the appropriate field. For the summary field, write a quick summary of the company's activity sector based on its name\n\n"
         f"Company financial report: {summary}\n\n"
-        f"CSV template: ${csv_template}\n\nAssistant:"
+        f"json template: ${json_template}\n\nAssistant:"
     )
 
     # Define the request payload
     payload = {
         "prompt": prompt_text,
-        "max_tokens_to_sample": 150,  # Adjust based on expected response length
+        "max_tokens_to_sample": 300,  # Adjust based on expected response length
         "temperature": 0.7  # Adjust to control response creativity
     }
 
@@ -112,5 +89,7 @@ def pdf_to_string(pdf_path):
     return text
 
 
-example_summary = pdf_to_string("./financial_data_scraped.pdf")
-print(get_competitors_from_bedrock(example_summary))
+if __name__ == '__main__':
+    model_lst = load_all_models()
+    md_text, images, out_meta = convert_single_pdf('./financial_data_scraped.pdf',model_lst)
+    print(get_competitors_from_bedrock(md_text))
