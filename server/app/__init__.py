@@ -9,6 +9,7 @@ def create_app():
     
     # Enable CORS for all routes, allowing requests from any domain.
     CORS(app)    
+    app.config['CORS_HEADERS'] = 'Content-Type'
 
     app.register_blueprint(server)
     

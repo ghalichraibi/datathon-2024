@@ -54,7 +54,7 @@ def pdf_to_json(pdf_path):
         inputText = f"""Fill the following json template with values found in the company financial report named {output_path_pdf} in your knowledge base. 
         Your response should not contain anything else than the filled out template. 
         If you cannot find a value, put a null value in the appropriate field. 
-        For the summary field, write a quick summary of the company's activity sector based on its name. Json template is 
+        For the summary field, write a quick summary of the company's activity sector based on its name. Don't forget the curly brackets. Json template is 
         'Company Name': ,
         'Fiscal Year': ,
         'Report Date': ,
