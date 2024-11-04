@@ -3,7 +3,9 @@ import re
 import boto3
 import datetime
 import os
+import time
 from dotenv import load_dotenv
+from botocore.exceptions import ClientError
 
 financial_data_pattern = r"\b\d{1,3}(?:[ ,]\d{3})*(?:\.\d{1,2})?(?:[%]|(?:\$|€|¥|£)?)\b"
 
@@ -35,6 +37,17 @@ def init():
     # Relatif a l'agent
     my_prompt = boto3.client('bedrock-agent-runtime',region_name=os.getenv("REGION_NAME"))
 
+def check_ingestion_job_status(job_id):
+    try:
+        response = bedrock_client.get_ingestion_job(dataSourceId = "BASBLNN6II", 
+                                                    knowledgeBaseId = "ISOUIL1PJ9",
+                                                    ingestionJobId=job_id)
+        status = response['ingestionJob']['status']
+        return status
+    except ClientError as e:
+        print(f"An error occurred: {e}")
+        return None
+
 def pdf_to_json(pdf_path):
 
     current_datetime = datetime.datetime.now() 
@@ -43,19 +56,29 @@ def pdf_to_json(pdf_path):
     extract_financial_pages(pdf_path, output_path_pdf) 
 
     # Mise a jour de KB
-    bedrock_client.start_ingestion_job(dataSourceId = "BASBLNN6II", knowledgeBaseId = "ISOUIL1PJ9")
-    
-    pdf_name_from_path = os.path.basename(pdf_path)
+    ingestion_job_response = bedrock_client.start_ingestion_job(dataSourceId = "BASBLNN6II", knowledgeBaseId = "ISOUIL1PJ9")
+    ingestion_job_id = ingestion_job_response['ingestionJob']['ingestionJobId']
+    # Attendre que la tâche soit complétée
+    status = check_ingestion_job_status(ingestion_job_id)
+    while status not in ["COMPLETE", "FAILED"]:
+        print(f"Current status of ingestion job {ingestion_job_id}: {status}")
+        time.sleep(10)  # Attendre 60 secondes avant de vérifier à nouveau
+        status = check_ingestion_job_status(ingestion_job_id)
 
-    # Ask
-    response = my_prompt.invoke_agent(
-        agentId = "W4XOVSG5PL",
-        agentAliasId = "IW4COIFE6B",
-        sessionId =  datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
-        inputText = f"""Fill the following json template with values found in the company financial report named {output_path_pdf} in your knowledge base. 
-        Your response should not contain anything else than the filled out template. 
-        If you cannot find a value, put a null value in the appropriate field. 
-        For the summary field, write a quick summary of the company's activity sector based on its name. Json template is 
+    # Afficher le statut final
+    if status == "COMPLETE":
+        print(f"Knowledge base has been updated successfully. Final status of ingestion job {ingestion_job_id}: {status}")
+
+        # Ask
+        response = my_prompt.invoke_agent(
+            agentId = "W4XOVSG5PL",
+            agentAliasId = "IW4COIFE6B",
+            sessionId =  datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
+            inputText = f"""Fill the following json template with values found in the company financial report named {output_path_pdf} in your knowledge base. 
+            Your response should not contain anything else than the filled out template.
+            If you don't find value for specific field you can estimate the value based on the other value that have in the report
+            For the summary field, write a quick summary of the company's activity sector based on its name. 
+            Json template: 
         'Company Name': ,
         'Fiscal Year': ,
         'Report Date': ,
@@ -81,13 +104,16 @@ def pdf_to_json(pdf_path):
         'Net Profit Margin': ,
         'Return on Assets (ROA)': ,
         'Return on Equity (ROE)': ,
-    """)
-    completion = ""
-    for event in response.get("completion"):
-        chunk = event["chunk"]
-        completion += chunk["bytes"].decode()
-    print(completion)
+    """
+        )
+        completion = ""
+        for event in response.get("completion"):
+            chunk = event["chunk"]
+            completion += chunk["bytes"].decode()
+        print(completion)
 
+    elif status == "FAILED":
+        print(f"Failed to update the knowledge base. Final status of ingestion job {ingestion_job_id}: {status}")
     delete_from_s3(output_path_pdf)
 
 def extract_financial_pages(pdf_path, output_pdf_path):
@@ -100,7 +126,7 @@ def extract_financial_pages(pdf_path, output_pdf_path):
         page = doc[page_num]
         text = page.get_text("text")
         
-        if len(re.findall(financial_data_pattern, text)) > 30:
+        if len(re.findall(financial_data_pattern, text)) > 20:
             has_page_in_new_doc += 1
             new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
 
@@ -159,3 +185,4 @@ def delete_from_s3(pdf_file_path):
 
 init()
 pdf_to_json("CP_AnnualReport2020_SECURED.pdf")
+#pdf_to_json("2023-CN-Rapport-Annuel.pdf")
