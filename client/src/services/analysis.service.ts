@@ -35,9 +35,9 @@ export class AnalysisService {
     this.analysis = analysis;
   }
 
-  public static getAnalysis(): Analysis {
+  public static getAnalysis(): Analysis | null {
     // return a deep copy of the analysis
-    return JSON.parse(JSON.stringify(this.analysis));
+    return this.analysis ? JSON.parse(JSON.stringify(this.analysis)) : null;
   }
 
   private static selectMostRecentReport(files: File[]): File {
