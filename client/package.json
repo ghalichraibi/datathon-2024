@@ -7,6 +7,7 @@
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "serve": "serve -s dist -l ${PORT:-5050}",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint:fix": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\"",
     "prettier": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\""
@@ -42,6 +43,7 @@
     "react-number-format": "^5.3.3",
     "react-router": "^6.22.3",
     "react-router-dom": "^6.22.3",
+    "serve": "^14.2.4",
     "simplebar-react": "^3.2.4",
     "slick-carousel": "^1.8.1",
     "swr": "^2.2.5",
