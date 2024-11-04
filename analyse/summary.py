@@ -378,17 +378,14 @@ def generate_summary_analysis(section_name, text, linked_metrics, retries=5, del
             response_body = json.loads(response['body'].read())
             analysis = response_body.get('completion', '').strip()
 
-            # Process the analysis to create the desired dictionary structure
             if analysis:
-                # Split the analysis into sentences and bullet points
                 sentences = analysis.split('\n')
                 first_sentence = sentences[0] if sentences else ""
                 bullet_points = [sentence.strip() for sentence in sentences[1:] if sentence.strip()]
 
-                # Create the dictionary structure
                 summary_dict = {first_sentence: bullet_points}
 
-                return summary_dict  # Return the summary dictionary
+                return summary_dict  
 
             return None  # In case of empty analysis
 
@@ -437,8 +434,7 @@ def get_revenue_multiple_from_bedrock(company_summary, financial_metrics, retrie
 
             multiple_text = json.loads(response_body).get('completion', '').strip()
 
-            # Extract the numeric value
-            value = re.search(r'\d+\.?\d*', multiple_text)  # Matches numeric values
+            value = re.search(r'\d+\.?\d*', multiple_text)  
             if value:
                 return float(value.group(0))
             else:
@@ -467,7 +463,6 @@ def mean_absolute_error(y_true, y_pred):
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
     
-    # Calculate the absolute errors and return the mean
     return np.mean(np.abs(y_true - y_pred))
 
 
@@ -554,12 +549,11 @@ def get_beta_from_bedrock(company_summary, retries=5, delay=1):
             
             beta_text = json.loads(response_body).get('completion', '').strip()
 
-            # Check if the response is a valid number
             if beta_text.replace('.', '', 1).isdigit():  # Allows one decimal point
-                return float(beta_text), []  # No missing fields
+                return float(beta_text), []  
             else:
                 print("Received invalid number format for beta value.")
-                return None, ["Beta Value"]  # Indicate missing beta value
+                return None, ["Beta Value"]  
             
         except Exception as e:
             print(f"Error fetching beta value: {e}")
@@ -571,21 +565,16 @@ def get_beta_from_bedrock(company_summary, retries=5, delay=1):
 
 def stock_price_prediction(company_financial_data, estimated_shares=1000000):
     try:
-        # Ensure required fields are present
         if 'Total Revenue' not in company_financial_data or 'Total Net Income' not in company_financial_data:
             print("Missing required data for stock price prediction.")
             return "N/A", [], "N/A", "N/A"
 
-        # Estimate valuation and market-to-book ratio using dynamic revenue multiple
         company_valuation, market_to_book_ratio = estimate_company_valuation(company_financial_data)
 
-        # Use only the valuation (first element of the tuple) for IPO stock price calculation
         valuation = company_valuation
 
-        # Updated data with valuation as target for prediction
         target_ipo_prices = [valuation]
 
-        # Organize data into features for prediction
         data = {
             'Total_Revenue': [company_financial_data['Total Revenue'].iloc[0]],
             'Net_Income': [company_financial_data['Total Net Income'].iloc[0]],
@@ -595,7 +584,6 @@ def stock_price_prediction(company_financial_data, estimated_shares=1000000):
         }
         df = pd.DataFrame(data)
 
-        # Check if only one sample is available
         if len(df) > 1:
             X_train, X_test, y_train, y_test = train_test_split(df, target_ipo_prices, test_size=0.2, random_state=42)
             model = LinearRegression()
@@ -606,7 +594,7 @@ def stock_price_prediction(company_financial_data, estimated_shares=1000000):
             model = LinearRegression()
             model.fit(df, target_ipo_prices)
             predictions = model.predict(df)
-            mae = 0  # MAE is not meaningful with a single data point
+            mae = 0  
 
         # Calculate IPO stock price from the valuation
         ipo_stock_price = valuation / estimated_shares
@@ -631,13 +619,10 @@ def calculate_valuation_ratios(df):
         net_income = df['Total Net Income'].iloc[0]
         total_equity = df['Total Equity'].iloc[0]
 
-        # Price-to-Earnings Ratio (P/E)
         valuation_ratios['Price-to-Earnings Ratio (P/E)'] = total_revenue / net_income if net_income else 'N/A'
         
-        # Price-to-Sales Ratio (P/S)
         valuation_ratios['Price-to-Sales Ratio (P/S)'] = total_revenue / total_revenue if total_revenue else 'N/A'
 
-        # Price-to-Book Ratio (P/B)
         valuation_ratios['Price-to-Book Ratio (P/B)'] = total_revenue / total_equity if total_equity else 'N/A'
         
         return valuation_ratios
@@ -661,7 +646,6 @@ def calculate_risk_metrics_with_thresholds(df):
             "Profit Margin": {"Low": 0.1, "High": 0.3}
         }
         
-        # Create a new dictionary to store risk metrics along with their categories
         categorized_risk_metrics = risk_metrics.copy()
         
         for metric, value in risk_metrics.items():
@@ -692,7 +676,6 @@ def forecast_growth(df, growth_rate=0.05):
         total_revenue = df['Total Revenue'].iloc[0]
         net_income = df['Total Net Income'].iloc[0]
 
-        # Simple growth projections based on a static growth rate
         forecasts['Forecasted Revenue Growth'] = total_revenue * (1 + growth_rate)
         forecasts['Forecasted Net Income Growth'] = net_income * (1 + growth_rate)
 
@@ -752,14 +735,14 @@ def get_link_for_trend(category, retries=5, delay=1):
             response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
             response_body = json.loads(response['body'].read())
             link = response_body.get('completion', '').strip()
-            return link  # Return only the fetched link
+            return link  
 
         except Exception as e:
             print(f"Error fetching link for trend category '{category}': {e}")
             if attempt < retries - 1:
                 time.sleep(delay)
                 delay *= 2
-    return "N/A (Link not available)"  # Default return if fetching fails
+    return "N/A (Link not available)"  
 
 def get_emerging_market_trends_from_bedrock(company_summary, retries=5, delay=1):
     model_id = "anthropic.claude-v2"
@@ -771,7 +754,7 @@ def get_emerging_market_trends_from_bedrock(company_summary, retries=5, delay=1)
     )
     payload = {
         "prompt": prompt_text,
-        "max_tokens_to_sample": 10000,
+        "max_tokens_to_sample": 1000,  
         "temperature": 0.7
     }
     
@@ -781,7 +764,6 @@ def get_emerging_market_trends_from_bedrock(company_summary, retries=5, delay=1)
             response_body = json.loads(response['body'].read())
             trends_text = response_body.get('completion', '').strip()
             
-            # Process the trends text to create a structured output
             trends_lines = [trend.strip() for trend in trends_text.split('\n') if trend.strip()]
             first_trend_statement = "Here are some emerging market trends relevant to this company:"
             
@@ -789,37 +771,34 @@ def get_emerging_market_trends_from_bedrock(company_summary, retries=5, delay=1)
 
             for line in trends_lines:
                 if line.startswith('-'):
-                    category_description = line[2:].strip()  # Remove the bullet point
-                    try:
-                        parts = category_description.split('-')
-                        category = parts[0].strip()  # First part is the category name
-                        dynamic_description = parts[1].strip() if len(parts) > 1 else "Description not available."
-                        
-                        # Fetch the link for the trend category
-                        link = get_link_for_trend(category)  # Fetch link from model
-                        
-                        # Remove static text and just return the link
-                        trends_list.append({
-                            category: (dynamic_description, link.strip())
-                        })
-                    except IndexError:
-                        print(f"Warning: Could not split category and description for line: {line}")
-                        continue
+                    category_description = line[2:].strip()  
+                    parts = category_description.split('-', 1) 
+                    category = parts[0].strip()  
+                    dynamic_description = parts[1].strip() if len(parts) > 1 else "Description not available."
+                    
+                    link = get_link_for_trend(category) 
+                    
+                    trends_list.append({
+                        category: (dynamic_description, link.strip())
+                    })
+                    
+            return {first_trend_statement: trends_list}  
 
-            return {first_trend_statement: trends_list}  # Return the trends list
-
+        except IndexError:
+            print(f"Warning: Could not split category and description for line: {line}")
+            continue
         except Exception as e:
             print(f"Error fetching emerging market trends: {e}")
             if attempt < retries - 1:
                 time.sleep(delay)
                 delay *= 2
-    return None
 
+    return None  
 
 
 # Call display_analysis function to print analyses
 def fill_with_sources(data, source_dict):
-    if isinstance(data, dict):  # Ensure data is a dict
+    if isinstance(data, dict):  
         def get_value_or_placeholder(value, source):
             return value if value != "Not Present" else {"N/A": source}
 
@@ -856,15 +835,14 @@ def convert_to_serializable(obj):
 
 # Unpacking and organizing output in generate_analysis_json
 def generate_analysis_json(input_json):
-    # Transform the input JSON to the required format for analysis
     input_json = {
-        'Report ID': ['Report_001'],  # Assuming a static report ID for example
+        'Report ID': ['Report_001'],  
         'Company Name': [input_json.get('Company Name', 'Unknown')],
         'Fiscal Year': [input_json.get('Fiscal Year')],
         'Report Date': [input_json.get('Report Date')],
         'Currency': [input_json.get('Currency', 'USD')],
         'Summary': [input_json.get('Summary', 'No summary available.')],
-        'Total Revenue': [input_json.get('Total earnings')],  # Assuming 'Total earnings' is the correct key for revenue
+        'Total Revenue': [input_json.get('Total earnings')],  
         'Total Net Income': [input_json.get('Total Net Income')],
         'Total Operating Income': [input_json.get('Total Operating Income')],
         'Total Expenses': [input_json.get('Total Expenses')],
@@ -886,11 +864,9 @@ def generate_analysis_json(input_json):
         'Return on Equity (ROE)': [input_json.get('Return on Equity (ROE)', 0)]
     }
 
-    # Remove keys with null values
     report_data = {k: v for k, v in input_json.items() if v is not None}
     report_data = pd.DataFrame(report_data)
 
-    # Mapping of each field to its source
     field_sources = {
         "Total Revenue": "report",
         "Total Net Income": "report",
@@ -915,7 +891,6 @@ def generate_analysis_json(input_json):
         "Industry Interest Expense Ratio": "bedrock"
     }
 
-    # Fetch data and identify missing fields with sources
     industry_benchmarks, _ = get_industry_benchmarks(report_data['Summary'].iloc[0])
     industry_expenses, _ = get_industry_expense_ratios_from_bedrock(report_data['Summary'].iloc[0])
     industry_revenue, _ = get_industry_revenue_from_bedrock(report_data['Summary'].iloc[0])
@@ -927,22 +902,16 @@ def generate_analysis_json(input_json):
     estimated_shares = 1000000  # Example value
     eps = calculate_eps(report_data, estimated_shares)
 
-    # Calculate risk metrics
     risk_metrics = calculate_risk_metrics_with_thresholds(report_data)
 
-    # Forecast growth
     growth_forecast = forecast_growth(report_data)
 
-    # Get industry valuation ratios
     industry_valuation_ratios = get_industry_valuation_ratios_from_bedrock(report_data['Summary'].iloc[0])
 
-    # Get emerging market trends
     emerging_market_trends = get_emerging_market_trends_from_bedrock(report_data['Summary'].iloc[0])
 
-    # Calculate stock price prediction to get MAE
     mae, predictions, company_valuation, ipo_stock_price = stock_price_prediction(estimated_shares)
 
-    # Prepare data with sources indicated for missing fields
     output = {
         "Financial Health Summary": {
             "Metrics": financial_health_summary(report_data),
@@ -998,7 +967,6 @@ def generate_analysis_json(input_json):
     
     return json.dumps(convert_to_serializable(output), indent=4)
 
-# Call generate_analysis_json to create JSON output with source-indicated placeholders
 json_output = generate_analysis_json(input_json)
 print("=== JSON Output for UI ===")
 print(json_output)

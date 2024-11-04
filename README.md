@@ -1,71 +1,86 @@
-# Finsight AI
+# 🧠 Finsight AI
 
-Finsight AI est un outil performant conçu pour automatiser et optimiser l'analyse financière des entreprises. En examinant les rapports financiers annuels, la plateforme génère des rapports personnalisés, comparant les données spécifiques de l’entreprise avec les points de référence du marché. Le résultat inclut des graphiques clairs qui mettent en avant les principaux indicateurs, tendances et performances, permettant aux parties prenantes d’obtenir des repères exploitables sur la position de l’entreprise par rapport aux standards de l'industrie.
+Finsight AI est un outil puissant conçu pour automatiser et optimiser l'analyse financière des entreprises. En examinant les rapports financiers annuels, la plateforme génère des rapports personnalisés, comparant les données spécifiques de l’entreprise avec les points de référence du marché. Le résultat inclut des graphiques clairs qui mettent en avant les principaux indicateurs, tendances et performances, offrant aux parties prenantes des insights exploitables sur la position de l’entreprise par rapport aux standards de l'industrie.
 
-Cet outil à été créé en Javascript React et python en collaboration avec les personnes suivantes:
-- Hossam Moustafa - @scriptmaze
-- Arnaud Grandisson - @ArnaudGrd
-- Ghali Chraibi - @ghalichraibi
-- Hubert Khouzam - @HubertKhouzam
+## Technologies Utilisées
 
----
+Ce projet a été développé en JavaScript (React) et Python avec la contribution des personnes suivantes :
+
+- Hossam Moustafa - [@scriptmaze](https://github.com/scriptmaze)
+- Arnaud Grandisson - [@ArnaudGrd](https://github.com/ArnaudGrd)
+- Ghali Chraibi - [@ghalichraibi](https://github.com/ghalichraibi)
+- Hubert Khouzam - [@HubertKhouzam](https://github.com/HubertKhouzam)
 
 ## Pré-requis
 
-- **Node.js** et **npm** pour le UI
+- **Node.js** et **npm** pour le front-end
 - **Python 3.x** et **pip** pour le back-end
-- **Virtual Environment** (recommandé pour gérer les dépendances python)
+- Environnement Virtuel (recommandé pour gérer les dépendances Python)
 
+## Setup pour le Back-End (Analyse de Données)
 
-## Setup pour le back-end / l'analyse de données
+1. Naviguez vers le dossier serveur :
+   ```bash
+   cd serveur
+   ```
 
-```bash
-cd serveur
-```
-- Création d'un environnement virtuel
-```bash
-python3 -m venv venv
-source venv/bin/activate
-## Windows : `venv\Scripts\activate`
-```
-- Installation des dépendances Python:
-```bash
-pip install -r requirements.txt
-```
+2. Créez un environnement virtuel :
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   # Pour Windows : `venv\Scripts\activate`
+   ```
 
-### Initialisation du fichier .env
+3. Installez les dépendances Python :
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Dans le dossier `serveur`, créer un nouveau fichier nommé `.env`. Ce fichier va contenir les clés AWS pour l'extraction de données.
-Le fichier doit avoir la structure suivante:
+### Initialisation du fichier `.env`
+
+Dans le dossier serveur, créez un fichier nommé `.env` pour y stocker les clés AWS nécessaires à l'extraction de données. Ce fichier doit respecter la structure suivante :
+
 ```plaintext
-BUCKET_NAME = 'your-bucket-name'
-AWS_ACCESS_KEY_ID='your-aws-access-key-id'
-AWS_SECRET_ACCESS_KEY='your-secret-access-key'
-REGION_NAME='your-region-name'
+BUCKET_NAME='votre-nom-de-bucket'
+AWS_ACCESS_KEY_ID='votre-aws-access-key-id'
+AWS_SECRET_ACCESS_KEY='votre-aws-secret-access-key'
+REGION_NAME='votre-region-name'
 ```
 
-Il est maintenant possible de déployer le serveur Flask localement:
-```bash
-python your-app-name.py
-```
-Le serveur devrait être déployé a l'adresse `http://127.0.0.1:5000`
+4. Lancez le serveur Flask en local :
+   ```bash
+   python your-app-name.py
+   ```
+   Le serveur devrait maintenant être accessible à [http://127.0.0.1:5000](http://127.0.0.1:5000)
 
-## Setup pour le front-end
+## Setup pour le Front-End
 
-- Ouvrir un nouveau terminal et naviguer vers le front-end:
-```bash
-cd client
-```
+1. Ouvrez un nouveau terminal et accédez au dossier du front-end :
+   ```bash
+   cd client
+   ```
 
-- Installer les dépendances du front-end
-```bash
-npm ci
-```
+2. Installez les dépendances front-end :
+   ```bash
+   npm ci
+   ```
 
-- Déployer le front-end localement:
-```bash
-npm start
-```
-Le UI devrait être déployé a l'adresse `http://localhost:3000`
+3. Démarrez le front-end en local :
+   ```bash
+   npm start
+   ```
+   L’interface devrait être accessible à [http://localhost:3000](http://localhost:3000)
 
-Finsight AI devrait maintenant être prêt à l'utilisation
+---
+
+Finsight AI est maintenant prêt à l'utilisation !
+
+## Dépannage
+
+Si vous rencontrez des erreurs :
+
+- Vérifiez les informations d'authentification AWS dans `.env` pour vous assurer qu'elles sont correctes.
+- Assurez-vous que le serveur et le client sont lancés dans des terminaux séparés.
+- Consultez les logs pour des messages d'erreur spécifiques, que ce soit dans le terminal ou la console du navigateur.
+
+Avec Finsight AI, prenez des décisions informées basées sur des analyses financières précises et automatisées ! 📊
