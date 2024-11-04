@@ -51,7 +51,6 @@ input_json = {
     'Return on Equity (ROE)': 0.175
 }
 
-company_data = pd.DataFrame(csv_data)
 
 # Enhanced error handling function
 def safe_access(df, column_name):
@@ -358,8 +357,7 @@ def generate_summary_analysis(section_name, text, linked_metrics, retries=5, del
         f"Human: Provide a detailed analysis and summary for the '{section_name}' section based on the following information.\n\n"
         f"{section_name} Details: {text}\n\n"
         f"In your response, link these insights with the following related metrics where relevant:\n\n{linked_metrics}\n\n"
-        f"format you're answer in bulletpoints"
-        f"your response should be of a maximum of 600 tokens and the last sentence should be complete"
+        f"Format your answer in bullet points. Your response should be of a maximum of 600 tokens and the last sentence should be complete and not cutoff.\n"
         f"Assistant:"
     )
 
@@ -379,7 +377,20 @@ def generate_summary_analysis(section_name, text, linked_metrics, retries=5, del
             )
             response_body = json.loads(response['body'].read())
             analysis = response_body.get('completion', '').strip()
-            return analysis
+
+            # Process the analysis to create the desired dictionary structure
+            if analysis:
+                # Split the analysis into sentences and bullet points
+                sentences = analysis.split('\n')
+                first_sentence = sentences[0] if sentences else ""
+                bullet_points = [sentence.strip() for sentence in sentences[1:] if sentence.strip()]
+
+                # Create the dictionary structure
+                summary_dict = {first_sentence: bullet_points}
+
+                return summary_dict  # Return the summary dictionary
+
+            return None  # In case of empty analysis
 
         except client.exceptions.ThrottlingException:
             if attempt < retries - 1:  # Only sleep if there are remaining attempts
@@ -393,6 +404,9 @@ def generate_summary_analysis(section_name, text, linked_metrics, retries=5, del
         except Exception as e:
             print(f"An error occurred: {e}")
             return None
+
+
+
         
 # Function to get revenue multiple based on company metrics from Bedrock
 def get_revenue_multiple_from_bedrock(company_summary, financial_metrics, retries=5, delay=1):
@@ -719,29 +733,88 @@ def get_industry_valuation_ratios_from_bedrock(company_summary, retries=5, delay
     return None
 
 
+def get_link_for_trend(category, retries=5, delay=1):
+    """Fetch a relevant link for the given trend category from the model, returning only the link."""
+    model_id = "anthropic.claude-v2"
+    prompt_text = (
+        f"Human: Provide a relevant online resource link for the following trend category without any additional text:\n\n"
+        f"Trend Category: {category}\n\n"
+        f"Assistant:"
+    )
+    payload = {
+        "prompt": prompt_text,
+        "max_tokens_to_sample": 1000,
+        "temperature": 0.7
+    }
+    
+    for attempt in range(retries):
+        try:
+            response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
+            response_body = json.loads(response['body'].read())
+            link = response_body.get('completion', '').strip()
+            return link  # Return only the fetched link
+
+        except Exception as e:
+            print(f"Error fetching link for trend category '{category}': {e}")
+            if attempt < retries - 1:
+                time.sleep(delay)
+                delay *= 2
+    return "N/A (Link not available)"  # Default return if fetching fails
+
 def get_emerging_market_trends_from_bedrock(company_summary, retries=5, delay=1):
     model_id = "anthropic.claude-v2"
     prompt_text = (
-        f"Human: Based on the company description below, list emerging market trends relevant to this company.\n\n"
-        f"Company Description: {company_summary}\n\nAssistant:"
+        f"Human: Based on the company description below, list emerging market trends relevant to this company with a brief description for each trend:\n\n"
+        f"Company Description: {company_summary}\n\n"
+        f"Format your answer in bullet points. Your response should be of a maximum of 600 tokens and the last sentence should be complete and not cutoff.\n"
+        f"Assistant:"
     )
     payload = {
         "prompt": prompt_text,
         "max_tokens_to_sample": 10000,
         "temperature": 0.7
     }
+    
     for attempt in range(retries):
         try:
             response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
             response_body = json.loads(response['body'].read())
             trends_text = response_body.get('completion', '').strip()
-            return trends_text.split(', ')  # Assuming Bedrock returns a comma-separated list
+            
+            # Process the trends text to create a structured output
+            trends_lines = [trend.strip() for trend in trends_text.split('\n') if trend.strip()]
+            first_trend_statement = "Here are some emerging market trends relevant to this company:"
+            
+            trends_list = []
+
+            for line in trends_lines:
+                if line.startswith('-'):
+                    category_description = line[2:].strip()  # Remove the bullet point
+                    try:
+                        parts = category_description.split('-')
+                        category = parts[0].strip()  # First part is the category name
+                        dynamic_description = parts[1].strip() if len(parts) > 1 else "Description not available."
+                        
+                        # Fetch the link for the trend category
+                        link = get_link_for_trend(category)  # Fetch link from model
+                        
+                        # Remove static text and just return the link
+                        trends_list.append({
+                            category: (dynamic_description, link.strip())
+                        })
+                    except IndexError:
+                        print(f"Warning: Could not split category and description for line: {line}")
+                        continue
+
+            return {first_trend_statement: trends_list}  # Return the trends list
+
         except Exception as e:
             print(f"Error fetching emerging market trends: {e}")
             if attempt < retries - 1:
                 time.sleep(delay)
                 delay *= 2
     return None
+
 
 
 # Call display_analysis function to print analyses
@@ -815,7 +888,7 @@ def generate_analysis_json(input_json):
 
     # Remove keys with null values
     report_data = {k: v for k, v in input_json.items() if v is not None}
-    report_data = pd.DataFrame(csv_data)
+    report_data = pd.DataFrame(report_data)
 
     # Mapping of each field to its source
     field_sources = {
