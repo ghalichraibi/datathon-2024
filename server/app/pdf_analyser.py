@@ -20,126 +20,188 @@ def init():
     
     load_dotenv()
 
-    # Créer une session boto3
+    bucket_name = 'scraped-pdf-bucket'
+    if not bucket_name:
+        print("Error: BUCKET_NAME is not set in environment variables.")
+        return
+    
     bucket_name = os.getenv("BUCKET_NAME")
+    aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    print(f"Bucket Name: {bucket_name}")
+    print(f"AWS Access Key: {'Loaded' if aws_access_key else 'Not loaded'}")
+    print(f"AWS Secret Key: {'Loaded' if aws_secret_key else 'Not loaded'}")
+
+    if not aws_access_key or not aws_secret_key:
+        print("Error: AWS credentials are not set in the environment variables.")
+        return
 
     session = boto3.Session(
-        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-        region_name=os.getenv("REGION_NAME"),
+        aws_access_key_id='AKIA5HE2WWPH2CRMMQMY',
+        aws_secret_access_key='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',
+        region_name='us-west-2',
     )
 
-    # Créer un client S3
     s3_client = session.client('s3')
-
-    # Relatif a la KnowledgeBase
-    bedrock_client = boto3.client('bedrock-agent',region_name=os.getenv("REGION_NAME"))
-
-    # Relatif a l'agent
-    my_prompt = boto3.client('bedrock-agent-runtime',region_name=os.getenv("REGION_NAME"))
+    bedrock_client = boto3.client('bedrock-agent', region_name='us-west-2')
+    my_prompt = boto3.client('bedrock-agent-runtime', region_name='us-west-2')
+    print("Initialization complete. S3 and Bedrock clients are set up.")
 
 def check_ingestion_job_status(job_id):
     try:
-        response = bedrock_client.get_ingestion_job(dataSourceId = "BASBLNN6II", 
-                                                    knowledgeBaseId = "ISOUIL1PJ9",
-                                                    ingestionJobId=job_id)
-        status = response['ingestionJob']['status']
-        return status
+        response = bedrock_client.get_ingestion_job(
+            dataSourceId="BASBLNN6II", 
+            knowledgeBaseId="ISOUIL1PJ9",
+            ingestionJobId=job_id
+        )
+        # Check if response is a dictionary
+        if isinstance(response, dict):
+            status = response.get('ingestionJob', {}).get('status')
+            print(f"Ingestion job {job_id} status: {status}")
+            return status
+        else:
+            # Log tuple response as error
+            print(f"Error: Unexpected tuple response format: {response}")
+            return None
     except ClientError as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred while checking ingestion job status: {e}")
         return None
 
+
+    
 def pdf_to_json(pdf_path):
+    if not pdf_path:
+        print("Error: pdf_path is None")
+        return {"error": "No PDF path provided"}, 400
 
     current_datetime = datetime.datetime.now() 
     output_id = current_datetime.strftime("%Y%m%d_%H%M%S")
     output_path_pdf = pdf_path.replace(".pdf", f"_{output_id}.pdf")
-    extract_financial_pages(pdf_path, output_path_pdf) 
+    
+    try:
+        # Attempt to extract financial pages
+        extract_financial_pages(pdf_path, output_path_pdf)
+    except Exception as e:
+        print(f"Error extracting financial pages: {e}")
+        return {"error": "Failed to extract financial pages"}, 500
 
-    # Mise a jour de KB
-    ingestion_job_response = bedrock_client.start_ingestion_job(dataSourceId = "BASBLNN6II", knowledgeBaseId = "ISOUIL1PJ9")
-    ingestion_job_id = ingestion_job_response['ingestionJob']['ingestionJobId']
-    # Attendre que la tâche soit complétée
+    try:
+        # Start the ingestion job
+        ingestion_job_response = bedrock_client.start_ingestion_job(
+            dataSourceId="BASBLNN6II", 
+            knowledgeBaseId="ISOUIL1PJ9"
+        )
+        # Ensure ingestion job response is a dictionary
+        if isinstance(ingestion_job_response, dict):
+            ingestion_job_id = ingestion_job_response.get('ingestionJob', {}).get('ingestionJobId')
+            print(f"Started ingestion job {ingestion_job_id}")
+        else:
+            print("Error: Unexpected tuple or non-dict response:", ingestion_job_response)
+            return {"error": "Invalid response from ingestion job"}, 500
+    except ClientError as e:
+        print(f"Failed to start ingestion job: {e}")
+        return {"error": "Failed to start ingestion job"}, 500
+
+    # Polling for job completion
     status = check_ingestion_job_status(ingestion_job_id)
     while status not in ["COMPLETE", "FAILED"]:
         print(f"Current status of ingestion job {ingestion_job_id}: {status}")
-        time.sleep(10)  # Attendre 60 secondes avant de vérifier à nouveau
+        time.sleep(10)
         status = check_ingestion_job_status(ingestion_job_id)
 
-    # Afficher le statut final
     if status == "COMPLETE":
-        print(f"Knowledge base has been updated successfully. Final status of ingestion job {ingestion_job_id}: {status}")
+        print(f"Ingestion job {ingestion_job_id} completed successfully.")
+        try:
+            # Invoke the Bedrock agent with a detailed prompt
+            response = my_prompt.invoke_agent(
+                agentId="W4XOVSG5PL",
+                agentAliasId="CIGVELRLL1",
+                sessionId=datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
+                inputText=(
+                    f"Please fill out the following JSON template using values from the financial report located at '{output_path_pdf}'. "
+                    "Each field must have a value. If the exact value is not found in the report, estimate based on general knowledge or indicate 'N/A'. "
+                    "Do not add any extra fields, comments, or explanations. Ensure the JSON is structured exactly as below with double quotes for each key and value. "
+                    "Return the JSON in the specified format without any surrounding text, headers, or footers:\n\n"
+                    "{\n"
+                    '    "Company Name": "PrivateTech",\n'
+                    '    "Fiscal Year": 2022,\n'
+                    '    "Report Date": "2022-12-31",\n'
+                    '    "Currency": "USD",\n'
+                    '    "Summary": "PrivateTech develops software solutions for e-commerce optimization in North America.",\n'
+                    '    "Total earnings": 5006780,\n'
+                    '    "Total Net Income": 707800,\n'
+                    '    "Total Operating Income": 609800,\n'
+                    '    "Total Expenses": 4309700,\n'
+                    '    "Cost of Goods Sold (COGS)": 2500560,\n'
+                    '    "Selling, General, and Administrative (SG&A)": 1225000,\n'
+                    '    "Research and Development (R&D)": 400180,\n'
+                    '    "Depreciation and Amortization": 200000,\n'
+                    '    "Interest Expense": 100000,\n'
+                    '    "Other Expenses": "N/A",\n'
+                    '    "Total Debt": 2000000,\n'
+                    '    "Debt-to-Equity Ratio": 0.5,\n'
+                    '    "Long-Term Debt": 1500000,\n'
+                    '    "Short-Term Debt": 500000,\n'
+                    '    "Total Equity": 4000000,\n'
+                    '    "Gross Profit Margin": 0.55,\n'
+                    '    "Operating Profit Margin": 0.12,\n'
+                    '    "Net Profit Margin": 0.14,\n'
+                    '    "Return on Assets (ROA)": 0.10,\n'
+                    '    "Return on Equity (ROE)": 0.175\n'
+                    "}"
+                ))
 
-        # Ask
-        response = my_prompt.invoke_agent(
-            agentId = "W4XOVSG5PL",
-            agentAliasId = "IW4COIFE6B",
-            sessionId =  datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
-            inputText = f"""Fill the following json template with values found in the company financial report named {output_path_pdf} in your knowledge base. 
-            Your response should not contain anything else than the filled out template.
-            For the summary field, write a quick summary of the company's activity sector based on its name. For the numbers, don't use commas for thousands separators (use nothing).
-            Every field should have a value, avoid writing null. Do not forget the curly braces. 
-            Json template: 
-                'Company Name': ,
-                'Fiscal Year': ,
-                'Report Date': ,
-                'Currency': ,
-                'Summary': ,
-                'Total earnings':,
-                'Total Net Income': ,
-                'Total Operating Income': ,
-                'Total Expenses': ,
-                'Cost of Goods Sold (COGS)': ,
-                'Selling, General, and Administrative (SG&A)': ,
-                'Research and Development (R&D)': ,
-                'Depreciation and Amortization': ,
-                'Interest Expense': ,
-                'Other Expenses': ,
-                'Total Debt': ,
-                'Debt-to-Equity Ratio': ,
-                'Long-Term Debt': ,
-                'Short-Term Debt': ,
-                'Total Equity': ,
-                'Gross Profit Margin': ,
-                'Operating Profit Margin': ,
-                'Net Profit Margin': ,
-                'Return on Assets (ROA)': ,
-                'Return on Equity (ROE)': ,
-        """
-        )
+            print("Raw response from invoke_agent:", response)
+            if isinstance(response, tuple):
+                print("Error: Received unexpected tuple from invoke_agent:", response)
+                return {"error": "Invalid response from agent"}, 500
+        except ClientError as e:
+            print(f"Failed to invoke agent: {e}")
+            return {"error": "Agent invocation failed"}, 500
+    else:
+        print(f"Ingestion job {ingestion_job_id} failed.")
+        return {"error": "Ingestion job failed"}, 500
+
     completion = ""
-    for event in response.get("completion"):
-        chunk = event["chunk"]
-        completion += chunk["bytes"].decode()
+    # Process the response to handle tuple anomalies
+    for event in response.get("completion", []):
+        chunk = event.get("chunk", {})
+        if isinstance(chunk, tuple):
+            print("Error: Unexpected tuple in completion:", chunk)
+        else:
+            completion += chunk.get("bytes", b"").decode("utf-8")
 
-    # Make JSON-compatible (use double quotes for keys and null for missing values)
-    json_compatible_completion = completion.replace("'", '"')
-    json_compatible_completion = json_compatible_completion.replace(": ,", ": null,")
-    json_compatible_completion = json_compatible_completion.replace(":,", ": null,")
-    json_compatible_completion = re.sub(r":\s*}", ": null}", json_compatible_completion)
+    print("Raw completion content before JSON parsing:", completion)
 
-    # Convert to a dictionary
     try:
+        json_compatible_completion = completion.replace("'", '"')
+        json_compatible_completion = re.sub(r":\s*}", ": null}", json_compatible_completion)
+        print("JSON-compatible completion string:", json_compatible_completion)
         result = json.loads(json_compatible_completion)
+        print("Parsed JSON:", result)
+        return result
     except json.JSONDecodeError as e:
         print("Error decoding JSON:", e)
-        result = None
+        return {"error": "Failed to decode JSON"}, 500
 
-    print("JSON completion:", completion)
-    print("JSON-compatible completion:", json_compatible_completion)
-    print("Dictionary completion:", result)
-    return result
+
 
 def extract_financial_pages(pdf_path, output_pdf_path):
-    doc = pymupdf.open(pdf_path)
-    new_doc = pymupdf.open()
+    if not pdf_path or not output_pdf_path:
+        print("Error: Invalid PDF path provided to extract_financial_pages")
+        return
+
+    try:
+        doc = pymupdf.open(pdf_path)
+        new_doc = pymupdf.open()
+    except Exception as e:
+        print(f"Error opening PDF: {e}")
+        return
 
     has_page_in_new_doc = 0
-
     for page_num in range(len(doc)):
         page = doc[page_num]
         text = page.get_text("text")
-        
         if len(re.findall(financial_data_pattern, text)) > 20:
             has_page_in_new_doc += 1
             new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
@@ -150,52 +212,46 @@ def extract_financial_pages(pdf_path, output_pdf_path):
     if has_page_in_new_doc:
         print(f"Financial data extracted to {output_pdf_path}")
         drop_pdf_scraped_in_s3(output_pdf_path)
-
     else:
         print("No financial data found in the PDF.")
 
     delete_file(output_pdf_path)
-
     doc.close()
 
+
 def drop_pdf_scraped_in_s3(file_path):
-    extracted_name = os.path.basename(file_path)
+    if not file_path:
+        print("Error: Invalid file path for S3 upload")
+        return
 
-    # Nom du bucket et de l'emplacement désiré du fichier
-    s3_key = extracted_name
-
-    # Télécharger le fichier sur le bucket S3
-    s3_client.upload_file(file_path, bucket_name, s3_key)
-
-    print(f'File {file_path} uploaded to {bucket_name}/{s3_key}')
+    try:
+        s3_client.upload_file(file_path, bucket_name, os.path.basename(file_path))
+        print(f'File {file_path} uploaded to {bucket_name}')
+    except ClientError as e:
+        print(f"Error uploading to S3: {e}")
 
 def delete_file(pdf_file_path):
-    # Check if the file exists
-    if os.path.exists(pdf_file_path):
-        # Delete the file
+    if pdf_file_path and os.path.exists(pdf_file_path):
         os.remove(pdf_file_path)
         print(f"{pdf_file_path} has been deleted.")
     else:
         print(f"{pdf_file_path} does not exist.")
 
 def delete_from_s3(pdf_file_path):
-    # Vérifier si l'objet existe 
     try: 
         s3_client.head_object(Bucket=bucket_name, Key=pdf_file_path) 
         object_exists = True 
         print(f'The object {pdf_file_path} exists in bucket {bucket_name}.') 
-    except s3_client.exceptions.ClientError as e: 
+    except ClientError as e: 
         if e.response['Error']['Code'] == '404': 
             object_exists = False 
             print(f'The object {pdf_file_path} does not exist in bucket {bucket_name}.') 
         else: 
             raise
 
-    # Supprimer l'objet si il existe 
     if object_exists: 
         s3_client.delete_object(Bucket=bucket_name, Key=pdf_file_path) 
         print(f'File {pdf_file_path} deleted from bucket {bucket_name}.')
-
 
 init()
 
