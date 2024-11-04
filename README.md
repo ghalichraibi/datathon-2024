@@ -6,9 +6,7 @@ Cet outil à été créé en Javascript React et python
 
 ## Table des matières
 
-- [Project Structure](#project-structure)
-- [Features](#features)
-- [Requirements](#requirements)
+- [Installation](#requirements)
 - [Getting Started](#getting-started)
 - [Backend Setup](#backend-setup)
 - [Frontend Setup](#frontend-setup)
@@ -19,18 +17,6 @@ Cet outil à été créé en Javascript React et python
 
 ---
 
-## Project Structure
+## Installation
 
-```plaintext
-project/
-├── backend/               # Python Flask backend
-│   ├── app.py             # Main Flask app file
-│   ├── requirements.txt   # Backend dependencies
-│   └── ...                # Other backend files
-│
-├── frontend/              # React frontend
-│   ├── src/
-│   ├── public/
-│   └── package.json       # Frontend dependencies
-│
-└── README.md              # Project README
+
