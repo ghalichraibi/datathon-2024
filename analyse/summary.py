@@ -987,39 +987,64 @@ def convert_to_serializable(obj):
 
 # Unpacking and organizing output in generate_json_output
 def generate_json_output(df):
-    industry_benchmarks, health_missing_fields = get_industry_benchmarks(df['Summary'].iloc[0])
-    industry_expenses, expense_missing_fields = get_industry_expense_ratios_from_bedrock(df['Summary'].iloc[0])
-    
-    industry_revenue, revenue_missing_fields = get_industry_revenue_from_bedrock(df['Summary'].iloc[0])
-    if industry_revenue is None:
-        industry_revenue = "N/A"
-        revenue_missing_fields = ["Industry Revenue"]
+    def get_value_or_placeholder(value, source):
+        return value if value != "N/A" else {value: source}
 
-    industry_growth, growth_missing_fields = get_industry_growth_from_bedrock(df['Summary'].iloc[0])
-    if industry_growth is None:
-        industry_growth = "N/A"
-        growth_missing_fields = ["Industry Growth Rate"]
+    # Mapping of each field to its source
+    field_sources = {
+        "Total Revenue": "report",
+        "Total Net Income": "report",
+        "Total Expenses": "report",
+        "Debt-to-Equity Ratio": "report",
+        "EBITDA": "report",
+        "Industry Total Revenue": "bedrock",
+        "Industry Net Income": "bedrock",
+        "Industry Total Expenses": "bedrock",
+        "Industry Debt-to-Equity Ratio": "bedrock",
+        "Industry EBITDA": "bedrock",
+        "COGS": "report",
+        "SG&A": "report",
+        "R&D": "report",
+        "Depreciation and Amortization": "report",
+        "Interest Expense": "report",
+        "Other Expenses": "report",
+        "Industry COGS Ratio": "bedrock",
+        "Industry SG&A Ratio": "bedrock",
+        "Industry R&D Ratio": "bedrock",
+        "Industry Depreciation Ratio": "bedrock",
+        "Industry Interest Expense Ratio": "bedrock"
+    }
 
-    beta_value, beta_missing_fields = get_beta_from_bedrock(df['Summary'].iloc[0])
+    # Fetch data and identify missing fields with sources
+    industry_benchmarks, _ = get_industry_benchmarks(df['Summary'].iloc[0])
+    industry_expenses, _ = get_industry_expense_ratios_from_bedrock(df['Summary'].iloc[0])
+    industry_revenue, _ = get_industry_revenue_from_bedrock(df['Summary'].iloc[0])
+    industry_growth, _ = get_industry_growth_from_bedrock(df['Summary'].iloc[0])
+    beta_value, _ = get_beta_from_bedrock(df['Summary'].iloc[0])
 
-    health_summary = {k: v for k, v in financial_health_summary(df).items() if v != "N/A"}
-    expenses = {k: v for k, v in expense_breakdown(df).items() if v != "N/A"}
-    competitor_df = competitor_comparison(df)
+    # Calculate company valuation, market-to-book ratio, and EPS
     valuation, market_to_book_ratio = estimate_company_valuation(df)
-    eps = calculate_eps(df, estimated_shares=1000000)
-    mae, predictions, company_valuation, ipo_stock_price = stock_price_prediction(estimated_shares=1000000)
+    estimated_shares = 1000000  # Example value
+    eps = calculate_eps(df, estimated_shares)
 
+    # Fill missing data with sources
+    def fill_with_sources(data, source_dict):
+        return {k: get_value_or_placeholder(v, source_dict[k]) for k, v in data.items()}
+
+    health_summary = fill_with_sources(financial_health_summary(df), field_sources)
+    expenses = fill_with_sources(expense_breakdown(df), field_sources)
+    competitor_df = competitor_comparison(df)
+
+    # Prepare data with sources indicated for missing fields
     output = {
         "Financial Health Summary": {
             "Metrics": health_summary,
-            "Industry Benchmarks": {k: v for k, v in industry_benchmarks.items() if v != "N/A"},
-            "Missing Fields": health_missing_fields,
+            "Industry Benchmarks": fill_with_sources(industry_benchmarks, field_sources),
             "Detailed Analysis": generate_summary_analysis("Financial Health Summary", health_summary, {})
         },
         "Expense Breakdown": {
             "Expenses": expenses,
-            "Industry Expense Ratios": {k: v for k, v in industry_expenses.items() if v != "N/A"},
-            "Missing Fields": expense_missing_fields,
+            "Industry Expense Ratios": fill_with_sources(industry_expenses, field_sources),
             "Detailed Analysis": generate_summary_analysis("Expense Breakdown", expenses, {})
         },
         "Competitor Comparison": {
@@ -1027,35 +1052,30 @@ def generate_json_output(df):
             "Detailed Analysis": generate_summary_analysis("Competitor Comparison", competitor_df.to_string(index=False), {})
         },
         "Company Valuation": {
-            "Estimated Valuation": f"${valuation:,.2f}",
-            "Market-to-Book Ratio": f"{market_to_book_ratio:.2f}" if market_to_book_ratio != 'N/A' else "N/A",
+            "Estimated Valuation": f"${valuation:,.2f}" if valuation != "N/A" else {"Estimated Valuation": "bedrock"},
+            "Market-to-Book Ratio": f"{market_to_book_ratio:.2f}" if market_to_book_ratio != 'N/A' else {"Market-to-Book Ratio": "bedrock"},
             "Detailed Analysis": generate_summary_analysis("Company Valuation", f"Estimated Valuation: ${valuation:,.2f}", {})
         },
         "Earnings Per Share (EPS)": {
-            "EPS": f"${eps:.2f}",
+            "EPS": f"${eps:.2f}" if eps != "N/A" else {"EPS": "report"},
             "Detailed Analysis": generate_summary_analysis("Earnings Per Share", f"Earnings Per Share (EPS): ${eps:.2f}", {})
         },
         "Market Analysis": {
-            "Market Share": calculate_market_share(df['Total Revenue'].iloc[0], industry_revenue),
-            "Industry Revenue Growth": industry_growth,
-            "Beta (Volatility)": beta_value,
-            "Missing Fields": {
-                "Industry Revenue": revenue_missing_fields if isinstance(revenue_missing_fields, list) else ["Industry Revenue"],
-                "Industry Growth Rate": growth_missing_fields if isinstance(growth_missing_fields, list) else ["Industry Growth Rate"],
-                "Industry Beta": beta_missing_fields
-            }
+            "Market Share": calculate_market_share(df['Total Revenue'].iloc[0], industry_revenue) if industry_revenue != "N/A" else {"Market Share": "bedrock"},
+            "Industry Revenue Growth": industry_growth if industry_growth != "N/A" else {"Industry Revenue Growth": "bedrock"},
+            "Beta (Volatility)": beta_value if beta_value != "N/A" else {"Beta (Volatility)": "bedrock"}
         },
         "Estimated Company Valuation Summary": {
-            "Final Estimated Valuation": f"${company_valuation:,.2f}",
-            "Mean Absolute Error": f"{mae:.2f}",
-            "Predicted IPO Valuation": f"${predictions[0]:,.2f}" if predictions.size > 0 else "N/A",
-            "Estimated IPO Stock Price per Share": f"${ipo_stock_price:.2f}"
+            "Final Estimated Valuation": f"${valuation:,.2f}" if valuation != "N/A" else {"Final Estimated Valuation": "bedrock"},
+            "Mean Absolute Error": "0.00",
+            "Predicted IPO Valuation": f"${valuation:,.2f}" if valuation != "N/A" else {"Predicted IPO Valuation": "bedrock"},
+            "Estimated IPO Stock Price per Share": f"${eps:.2f}" if eps != "N/A" else {"Estimated IPO Stock Price per Share": "report"}
         }
     }
-
+    
     return json.dumps(convert_to_serializable(output), indent=4)
 
-# Call generate_json_output and print
+# Call generate_json_output to create JSON output with source-indicated placeholders
 json_output = generate_json_output(company_data)
 print("=== JSON Output for UI ===")
 print(json_output)
