@@ -77,35 +77,35 @@ def pdf_to_json(pdf_path):
             sessionId =  datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
             inputText = f"""Fill the following json template with values found in the company financial report named {output_path_pdf} in your knowledge base. 
             Your response should not contain anything else than the filled out template.
-            If you don't find value for specific field you can estimate the value based on the other value that have in the report
-            For the summary field, write a quick summary of the company's activity sector based on its name. 
+            For the summary field, write a quick summary of the company's activity sector based on its name. For the numbers, don't use commas for thousands separators (use nothing).
+            Every field should have a value, avoid writing null. Do not forget the curly braces. 
             Json template: 
-        'Company Name': ,
-        'Fiscal Year': ,
-        'Report Date': ,
-        'Currency': ,
-        'Summary': ,
-        'Total earnings':,
-        'Total Net Income': ,
-        'Total Operating Income': ,
-        'Total Expenses': ,
-        'Cost of Goods Sold (COGS)': ,
-        'Selling, General, and Administrative (SG&A)': ,
-        'Research and Development (R&D)': ,
-        'Depreciation and Amortization': ,
-        'Interest Expense': ,
-        'Other Expenses': ,
-        'Total Debt': ,
-        'Debt-to-Equity Ratio': ,
-        'Long-Term Debt': ,
-        'Short-Term Debt': ,
-        'Total Equity': ,
-        'Gross Profit Margin': ,
-        'Operating Profit Margin': ,
-        'Net Profit Margin': ,
-        'Return on Assets (ROA)': ,
-        'Return on Equity (ROE)': ,
-    """
+                'Company Name': ,
+                'Fiscal Year': ,
+                'Report Date': ,
+                'Currency': ,
+                'Summary': ,
+                'Total earnings':,
+                'Total Net Income': ,
+                'Total Operating Income': ,
+                'Total Expenses': ,
+                'Cost of Goods Sold (COGS)': ,
+                'Selling, General, and Administrative (SG&A)': ,
+                'Research and Development (R&D)': ,
+                'Depreciation and Amortization': ,
+                'Interest Expense': ,
+                'Other Expenses': ,
+                'Total Debt': ,
+                'Debt-to-Equity Ratio': ,
+                'Long-Term Debt': ,
+                'Short-Term Debt': ,
+                'Total Equity': ,
+                'Gross Profit Margin': ,
+                'Operating Profit Margin': ,
+                'Net Profit Margin': ,
+                'Return on Assets (ROA)': ,
+                'Return on Equity (ROE)': ,
+        """
         )
     completion = ""
     for event in response.get("completion"):
@@ -114,6 +114,9 @@ def pdf_to_json(pdf_path):
 
     # Make JSON-compatible (use double quotes for keys and null for missing values)
     json_compatible_completion = completion.replace("'", '"')
+    json_compatible_completion = json_compatible_completion.replace(": ,", ": null,")
+    json_compatible_completion = json_compatible_completion.replace(":,", ": null,")
+    json_compatible_completion = re.sub(r":\s*}", ": null}", json_compatible_completion)
 
     # Convert to a dictionary
     try:
@@ -125,6 +128,7 @@ def pdf_to_json(pdf_path):
     print("JSON completion:", completion)
     print("JSON-compatible completion:", json_compatible_completion)
     print("Dictionary completion:", result)
+    return result
 
 def extract_financial_pages(pdf_path, output_pdf_path):
     doc = pymupdf.open(pdf_path)

@@ -4,24 +4,32 @@ interface FinancialHealthSummary {
   TotalExpenses: number | null;
   DebtToEquityRatio: number | null;
   EBITDA: number | null;
+  IndustryBenchmarks: {
+    IndustryTotalRevenue: number | null;
+    IndustryNetIncome: number | null;
+    IndustryTotalExpenses: number | null;
+    IndustryDebtToEquityRatio: number | null;
+    IndustryEBITDA: number | null;
+  };
   DetailedAnalysis: string[];
 }
 
 interface ExpenseBreakdown {
-  COGS: number | null;
-  SGA: number | null;
-  RandD: number | null;
-  DepreciationAndAmortization: number | null;
-  InterestExpense: number | null;
-  OtherExpenses: number | null;
-  TotalExpenses: number | null;
+  Expenses: {
+    COGS: number | null;
+    SGA: number | null;
+    RandD: number | null;
+    DepreciationAndAmortization: number | null;
+    InterestExpense: number | null;
+    OtherExpenses: number | null;
+  };
   ExpenseRatios: {
     COGS: number | null;
     SGA: number | null;
     RandD: number | null;
     DepreciationAndAmortization: number | null;
     InterestExpense: number | null;
-    OtherExpenses: string | null;
+    OtherExpenses: number | null;
   };
   DetailedAnalysis: string[];
 }
@@ -49,32 +57,48 @@ interface CompanyValuation {
 
 interface EPS {
   EPSValue: number | null;
-  CompetitorComparison: CompetitorData[];
   DetailedAnalysis: string[];
 }
 
-interface IndustryMetrics {
-  RevenueGrowth: number | null;
-  ValuationRatios: {
-    PE: number | null;
-    PS: number | null;
-  };
-  Beta: number | null;
+interface ValuationRatios {
+  PE: number | null;
+  PS: number | null;
+  PB: number | null;
+  DetailedAnalysis: string[];
+}
+
+interface RiskMetrics {
+  DebtToEquityRatio: number | null;
+  ProfitMargin: number | null;
+  DebtToEquityRiskCategory: string | null;
+  ProfitMarginRiskCategory: string | null;
+  DetailedAnalysis: string[];
+}
+
+interface GrowthForecast {
+  ForecastedRevenueGrowth: number | null;
+  ForecastedNetIncomeGrowth: number | null;
+  DetailedAnalysis: string[];
+}
+
+interface EmergingTrend {
+  Category: string;
+  Details: string[];
 }
 
 interface MarketAnalysis {
-  Industry: IndustryMetrics;
-  EmergingTrends: string[];
+  MarketShare: any;
+  IndustryRevenueGrowth: any;
+  Beta: number | null;
+  EmergingTrends: EmergingTrend[];
   DetailedAnalysis: string[];
-  MissingDataExplanation: string;
 }
 
 interface ValuationSummary {
   FinalValuation: number | null;
-  IPOStockPrice: number | null;
-  MarketShare: number | null;
-  MeanAbsoluteError: number | null;
-  PredictedIPOValuation: number | null;
+  MeanAbsoluteError: any;
+  PredictedIPOValuation: any;
+  IPOStockPrice: any;
   DetailedAnalysis: string[];
 }
 
@@ -84,6 +108,9 @@ export interface Analysis {
   CompetitorComparison: CompetitorComparison;
   CompanyValuation: CompanyValuation;
   EPS: EPS;
+  ValuationRatios: ValuationRatios;
+  RiskMetrics: RiskMetrics;
+  GrowthForecast: GrowthForecast;
   MarketAnalysis: MarketAnalysis;
   ValuationSummary: ValuationSummary;
 }
