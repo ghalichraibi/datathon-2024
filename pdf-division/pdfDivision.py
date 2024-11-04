@@ -74,19 +74,19 @@ session = boto3.Session(
 # Créer un client S3
 s3_client = session.client('s3')
 
-# relatif a la knowledgebase
-bedrock_client = boto3.client('bedrock-agent')
+# Relatif a la KnowledgeBase
+bedrock_client = boto3.client('bedrock-agent',region_name=os.getenv("REGION_NAME"))
 
 # Relatif a l'agent
-my_prompt = boto3.client('bedrock-agent-runtime')
+my_prompt = boto3.client('bedrock-agent-runtime',region_name=os.getenv("REGION_NAME"))
 
 my_file_to_scrap = "CP_AnnualReport2020_SECURED.pdf"
-file_scraped_name = f"financial_file_scraped"
+file_scraped_name = f"financial_file_scraped_to_delete"
 
-# extract_financial_pages(my_file_to_scrap, file_scraped_name) 
+extract_financial_pages(my_file_to_scrap, file_scraped_name) 
 
 # Mise a jour de KB
-# bedrock_client.start_ingestion_job(dataSourceId = "BASBLNN6II", knowledgeBaseId = "ISOUIL1PJ9")
+bedrock_client.start_ingestion_job(dataSourceId = "BASBLNN6II", knowledgeBaseId = "ISOUIL1PJ9")
 
 # Ask
 response = my_prompt.invoke_agent(
@@ -125,3 +125,4 @@ for event in response.get("completion"):
     chunk = event["chunk"]
     completion += chunk["bytes"].decode()
 print(completion)
+
