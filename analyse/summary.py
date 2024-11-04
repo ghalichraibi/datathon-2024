@@ -30,9 +30,9 @@ csv_data = {
     'Report Date': ['2022-12-31'],
     'Currency': ['USD'],
     'Summary': ['PrivateTech develops software solutions for e-commerce optimization in North America.'],
-    'Total Revenue': [5006780],
-    'Total Net Income': [707800],
-    'Total Operating Income': [609800],
+    # 'Total Revenue': [5006780],
+    # 'Total Net Income': [707800],
+    # 'Total Operating Income': [609800],
     'Total Expenses': [4309700],
     'Cost of Goods Sold (COGS)': [2500560],
     'Selling, General, and Administrative (SG&A)': [1225000],
@@ -54,7 +54,19 @@ csv_data = {
 
 company_data = pd.DataFrame(csv_data)
 
+# Enhanced error handling function
+def safe_access(df, column_name):
+    """Safely access a DataFrame column and return its value or a placeholder."""
+    try:
+        if column_name in df.columns:
+            return df[column_name].iloc[0]
+        else:
+            return "Not Present"
+    except Exception as e:
+        print(f"Error accessing column '{column_name}': {e}")
+        return "Not Present"
 
+# Fetch industry benchmarks from Bedrock
 # Fetch industry benchmarks from Bedrock
 def get_industry_benchmarks(company_summary):
     model_id = "anthropic.claude-v2"
@@ -63,21 +75,66 @@ def get_industry_benchmarks(company_summary):
         f"{{'Industry Total Revenue': <value>, 'Industry Net Income': <value>, 'Industry Total Expenses': <value>, 'Industry Debt-to-Equity Ratio': <value>, 'Industry EBITDA': <value>}}.\n\n"
         f"Company Description: {company_summary}\n\nAssistant:"
     )
-    payload = {"prompt": prompt_text, "max_tokens_to_sample": 50, "temperature": 0.5}
+    payload = {"prompt": prompt_text, "max_tokens_to_sample": 1000, "temperature": 0.5}
     expected_keys = ["Industry Total Revenue", "Industry Net Income", "Industry Total Expenses", "Industry Debt-to-Equity Ratio", "Industry EBITDA"]
 
     try:
         response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
         response_body = response['body'].read().decode()
-        benchmarks, missing_fields = validate_json_response(response_body, expected_keys)
-        print("Fetched Industry Benchmarks:", benchmarks)  # Debug print statement
+
+        # Extract the completion text from the response
+        completion_text = json.loads(response_body).get('completion', '').strip()
+
+        # Format the string to a JSON-compatible format
+        json_compatible_text = completion_text.replace("'", "\"")  # Replace single quotes with double quotes
+
+        # Load the string as a JSON object
+        benchmarks = json.loads(json_compatible_text)
+        missing_fields = [key for key in expected_keys if key not in benchmarks]
+
+        print(response_body)
         return benchmarks, missing_fields
     except Exception as e:
         print(f"Error fetching industry benchmarks: {e}")
         return {key: "N/A (Data not available)" for key in expected_keys}, expected_keys
 
 
+# Example Financial Health Summary
+def financial_health_summary(df):
+    required_fields = ["Total Revenue", "Total Net Income", "Total Expenses", "Debt-to-Equity Ratio"]
+    metrics = {field: safe_access(df, field) for field in required_fields}
+    
+    # Handle cases where financial metrics are missing
+    return {k: (v if v != "Not Present" else {"N/A": "report"}) for k, v in metrics.items()}
 
+# Estimate Company Valuation
+def estimate_company_valuation(df):
+    financial_metrics = {
+        "Total Revenue": safe_access(df, 'Total Revenue'),
+        "Net Income": safe_access(df, 'Total Net Income'),
+        "Total Expenses": safe_access(df, 'Total Expenses'),
+        "Debt-to-Equity Ratio": safe_access(df, 'Debt-to-Equity Ratio'),
+        "EBITDA": safe_access(df, 'Total Operating Income')
+    }
+    company_summary = safe_access(df, 'Summary')
+
+    revenue_multiple = get_revenue_multiple_from_bedrock(company_summary, financial_metrics)  # Placeholder function
+    if revenue_multiple is None:
+        revenue_multiple = 5  # Default value if API call fails
+
+    try:
+        revenue = float(financial_metrics['Total Revenue'])
+        valuation = revenue * revenue_multiple
+    except (ValueError, TypeError):
+        valuation = "Not Present"
+
+    try:
+        total_equity = float(safe_access(df, 'Total Equity'))
+        market_to_book_ratio = valuation / total_equity if total_equity > 0 else 'N/A'
+    except (ValueError, TypeError):
+        market_to_book_ratio = 'N/A'
+
+    return valuation, market_to_book_ratio
 
 
 # Identify competitors using Amazon Bedrock
@@ -159,16 +216,16 @@ def fetch_financial_data(symbol):
         cash_flow = stock.cashflow
 
         # Extracting relevant financial metrics
-        total_revenue = financials.loc['Total Revenue'].iloc[0] if 'Total Revenue' in financials.index else 'Not Available'
-        net_income = financials.loc['Net Income'].iloc[0] if 'Net Income' in financials.index else 'Not Available'
-        operating_income = financials.loc['Operating Income'].iloc[0] if 'Operating Income' in financials.index else 'Not Available'
-        ebitda = financials.loc['EBITDA'].iloc[0] if 'EBITDA' in financials.index else 'Not Available'
-        operating_cash_flow = cash_flow.loc['Total Cash From Operating Activities'].iloc[0] if 'Total Cash From Operating Activities' in cash_flow.index else 'Not Available'
+        total_revenue = financials.loc['Total Revenue'].iloc[0] if 'Total Revenue' in financials.index else {"N/A": "web-search"}
+        net_income = financials.loc['Net Income'].iloc[0] if 'Net Income' in financials.index else {"N/A": "web-search"}
+        operating_income = financials.loc['Operating Income'].iloc[0] if 'Operating Income' in financials.index else {"N/A": "web-search"}
+        ebitda = financials.loc['EBITDA'].iloc[0] if 'EBITDA' in financials.index else {"N/A": "web-search"}
+        operating_cash_flow = cash_flow.loc['Total Cash From Operating Activities'].iloc[0] if 'Total Cash From Operating Activities' in cash_flow.index else {"N/A": "web-search"}
 
         # Calculating Debt-to-Equity Ratio
         total_liabilities = balance_sheet.loc['Total Liab'].iloc[0] if 'Total Liab' in balance_sheet.index else None
         total_equity = balance_sheet.loc['Total Stockholder Equity'].iloc[0] if 'Total Stockholder Equity' in balance_sheet.index else None
-        debt_to_equity_ratio = (total_liabilities / total_equity) if total_liabilities and total_equity else 'Not Available'
+        debt_to_equity_ratio = (total_liabilities / total_equity) if total_liabilities and total_equity else {"N/A": "web-search"}
 
         return {
             'Symbol': symbol,
@@ -216,34 +273,6 @@ def competitor_comparison(df):
 
 
 
-# Financial Health Summary
-def financial_health_summary(df):
-    required_fields = ["Total Revenue", "Total Net Income", "Total Expenses", "Debt-to-Equity Ratio", "Total Operating Income"]
-    missing_fields = [field for field in required_fields if field not in df or pd.isna(df[field].iloc[0])]
-
-    if missing_fields:
-        return f"Financial Health Summary is not computable because {', '.join(missing_fields)} are missing."
-
-    metrics = {
-        "Total Revenue": df['Total Revenue'].iloc[0],
-        "Total Net Income": df['Total Net Income'].iloc[0],
-        "Total Expenses": df['Total Expenses'].iloc[0],
-        "Debt-to-Equity Ratio": df['Debt-to-Equity Ratio'].iloc[0],
-        "EBITDA": df['Total Operating Income'].iloc[0]
-    }
-
-    # Get industry benchmarks and check if it's a dictionary
-    industry_benchmarks, missing_fields = get_industry_benchmarks(df['Summary'].iloc[0])
-    if isinstance(industry_benchmarks, dict):
-        metrics.update(industry_benchmarks)
-    else:
-        print("Error: Industry benchmarks format is incorrect.")
-        missing_fields.append("Industry Benchmarks Format Error")
-
-    return metrics
-
-
-
 # Fetch industry expense ratios from Bedrock
 def get_industry_expense_ratios_from_bedrock(company_summary):
     model_id = "anthropic.claude-v2"
@@ -258,6 +287,7 @@ def get_industry_expense_ratios_from_bedrock(company_summary):
     try:
         response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
         response_body = response['body'].read().decode()
+        print(response_body)
         return validate_json_response(response_body, expected_keys)
     except Exception as e:
         print(f"Error fetching industry expense ratios: {e}")
@@ -294,42 +324,6 @@ def expense_breakdown(df):
     else:
         print("Error: Industry expense ratios format is incorrect.")
     return expense_ratios
-
-
-
-# Valuation Estimation 
-def estimate_company_valuation(df):
-    required_fields = ["Total Revenue", "Total Net Income", "Total Expenses", "Debt-to-Equity Ratio", 
-                       "Total Operating Income", "Total Equity"]
-    missing_fields = [field for field in required_fields if field not in df or pd.isna(df[field].iloc[0])]
-
-    if missing_fields:
-        return f"Company Valuation is not computable because {', '.join(missing_fields)} are missing."
-
-    # Retrieve all metrics to pass to Bedrock
-    financial_metrics = {
-        "Total Revenue": df['Total Revenue'].iloc[0],
-        "Net Income": df['Total Net Income'].iloc[0],
-        "Total Expenses": df['Total Expenses'].iloc[0],
-        "Debt-to-Equity Ratio": df['Debt-to-Equity Ratio'].iloc[0],
-        "EBITDA": df['Total Operating Income'].iloc[0]
-    }
-    company_summary = df['Summary'].iloc[0]
-    
-    # Request Bedrock for a dynamic revenue multiple based on comprehensive metrics
-    revenue_multiple = get_revenue_multiple_from_bedrock(company_summary, financial_metrics)
-    if revenue_multiple is None:
-        print("Using default revenue multiple of 5.")
-        revenue_multiple = 5  # Fallback to default if Bedrock fails
-    
-    revenue = df['Total Revenue'].iloc[0]
-    valuation = revenue * revenue_multiple
-
-    # Calculate Market-to-Book Ratio
-    total_equity = df['Total Equity'].iloc[0]
-    market_to_book_ratio = valuation / total_equity if total_equity != 0 else 'N/A'  # Avoid division by zero
-
-    return valuation, market_to_book_ratio
 
 
 
@@ -441,34 +435,6 @@ def get_revenue_multiple_from_bedrock(company_summary, financial_metrics, retrie
             return None
 
 
-# Modified Valuation Estimation function using Bedrock response for revenue multiple
-def estimate_company_valuation(df):
-    # Retrieve all metrics to pass to Bedrock
-    financial_metrics = {
-        "Total Revenue": df['Total Revenue'].iloc[0],
-        "Net Income": df['Total Net Income'].iloc[0],
-        "Total Expenses": df['Total Expenses'].iloc[0],
-        "Debt-to-Equity Ratio": df['Debt-to-Equity Ratio'].iloc[0],
-        "EBITDA": df['Total Operating Income'].iloc[0]
-    }
-    company_summary = df['Summary'].iloc[0]
-    
-    # Request Bedrock for a dynamic revenue multiple based on comprehensive metrics
-    revenue_multiple = get_revenue_multiple_from_bedrock(company_summary, financial_metrics)
-    if revenue_multiple is None:
-        print("Using default revenue multiple of 5.")
-        revenue_multiple = 5  # Fallback to default if Bedrock fails
-    
-    revenue = df['Total Revenue'].iloc[0]
-    valuation = revenue * revenue_multiple
-
-    # Calculate Market-to-Book Ratio
-    total_equity = df['Total Equity'].iloc[0]
-    market_to_book_ratio = valuation / total_equity if total_equity != 0 else 'N/A'  # Avoid division by zero
-
-    # Return both the valuation and market-to-book ratio as a tuple
-    return valuation, market_to_book_ratio
-
 def mean_absolute_error(y_true, y_pred):
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
@@ -476,120 +442,6 @@ def mean_absolute_error(y_true, y_pred):
     # Calculate the absolute errors and return the mean
     return np.mean(np.abs(y_true - y_pred))
 
-def stock_price_prediction(estimated_shares=1000000):
-    # Estimate valuation and market-to-book ratio using dynamic revenue multiple
-    company_valuation, market_to_book_ratio = estimate_company_valuation(company_data)
-
-    # Use only the valuation (first element of the tuple) for IPO stock price calculation
-    valuation = company_valuation
-
-    # Updated data with valuation as target for prediction
-    target_ipo_prices = [valuation]
-
-    # Organize data into features for prediction
-    data = {
-        'Total_Revenue': [company_data['Total Revenue'].iloc[0]],
-        'Net_Income': [company_data['Total Net Income'].iloc[0]],
-        'Total_Expenses': [company_data['Total Expenses'].iloc[0]],
-        'Debt_to_Equity_Ratio': [company_data['Debt-to-Equity Ratio'].iloc[0]],
-        'EBITDA': [company_data['Total Operating Income'].iloc[0]]
-    }
-    df = pd.DataFrame(data)
-
-    # Check if only one sample is available
-    if len(df) > 1:
-        X_train, X_test, y_train, y_test = train_test_split(df, target_ipo_prices, test_size=0.2, random_state=42)
-        model = LinearRegression()
-        model.fit(X_train, y_train)
-        predictions = model.predict(X_test)
-        mae = mean_absolute_error(y_test, predictions)
-    else:
-        model = LinearRegression()
-        model.fit(df, target_ipo_prices)
-        predictions = model.predict(df)
-        mae = 0  # MAE is not meaningful with a single data point
-
-    # Calculate IPO stock price from the valuation
-    ipo_stock_price = valuation / estimated_shares
-    return mae, predictions, valuation, ipo_stock_price
-
-def calculate_valuation_ratios(df):
-    required_fields = ["Total Revenue", "Total Net Income", "Total Equity"]
-    missing_fields = [field for field in required_fields if field not in df or pd.isna(df[field].iloc[0])]
-
-    if missing_fields:
-        return f"Valuation Ratios are not computable because {', '.join(missing_fields)} are missing."
-
-    valuation_ratios = {}
-    try:
-        total_revenue = df['Total Revenue'].iloc[0]
-        net_income = df['Total Net Income'].iloc[0]
-        total_equity = df['Total Equity'].iloc[0]
-
-        # Price-to-Earnings Ratio (P/E) - Assuming a placeholder price or IPO valuation
-        valuation_ratios['Price-to-Earnings Ratio (P/E)'] = total_revenue / net_income if net_income else 'N/A'
-        
-        # Price-to-Sales Ratio (P/S) - using valuation
-        valuation_ratios['Price-to-Sales Ratio (P/S)'] = total_revenue / total_revenue if total_revenue else 'N/A'
-
-        # Price-to-Book Ratio (P/B)
-        valuation_ratios['Price-to-Book Ratio (P/B)'] = total_revenue / total_equity if total_equity else 'N/A'
-        
-    except KeyError as e:
-        print(f"Missing data for valuation ratio calculation: {e}")
-    
-    return valuation_ratios
-
-# Risk Metrics Calculation (Custom Function)
-def calculate_risk_metrics_with_thresholds(df):
-    risk_metrics = {
-        "Debt-to-Equity Ratio": df['Debt-to-Equity Ratio'].iloc[0],
-        "Profit Margin": df['Net Profit Margin'].iloc[0]
-    }
-    
-    thresholds = {
-        "Debt-to-Equity Ratio": {"Low": 0.5, "High": 1.5},
-        "Profit Margin": {"Low": 0.1, "High": 0.3}
-    }
-    
-    # Create a new dictionary to store risk metrics along with their categories
-    categorized_risk_metrics = risk_metrics.copy()
-    
-    for metric, value in risk_metrics.items():
-        if metric in thresholds:
-            if value < thresholds[metric]["Low"]:
-                categorized_risk_metrics[f"{metric} Risk Category"] = "Low"
-            elif value > thresholds[metric]["High"]:
-                categorized_risk_metrics[f"{metric} Risk Category"] = "High"
-            else:
-                categorized_risk_metrics[f"{metric} Risk Category"] = "Moderate"
-    
-    return categorized_risk_metrics
-
-
-
-
-# Forecasting Placeholder (Simple Growth Estimate Function)
-def forecast_growth(df, growth_rate=0.05):
-    required_fields = ["Total Revenue", "Total Net Income"]
-    missing_fields = [field for field in required_fields if field not in df or pd.isna(df[field].iloc[0])]
-
-    if missing_fields:
-        return f"Growth Forecast is not computable because {', '.join(missing_fields)} are missing."
-
-    forecasts = {}
-    try:
-        total_revenue = df['Total Revenue'].iloc[0]
-        net_income = df['Total Net Income'].iloc[0]
-
-        # Simple growth projections based on a static growth rate
-        forecasts['Forecasted Revenue Growth'] = total_revenue * (1 + growth_rate)
-        forecasts['Forecasted Net Income Growth'] = net_income * (1 + growth_rate)
-
-    except KeyError as e:
-        print(f"Missing data for forecast calculation: {e}")
-    
-    return forecasts
 
 # Fetch industry revenue from Bedrock
 def get_industry_revenue_from_bedrock(company_summary):
@@ -630,115 +482,6 @@ def get_industry_growth_from_bedrock(company_summary):
         return "N/A (Data not available)", expected_keys
 
 
-# Industry Valuation Ratios (P/E, P/S) using Bedrock
-def get_industry_valuation_ratios_from_bedrock(company_summary, retries=5, delay=1):
-    model_id = "anthropic.claude-v2"
-    prompt_text = (
-        f"Human: Based on the company description below, provide the average Price-to-Earnings (P/E) and Price-to-Sales (P/S) ratios for the industry.\n\n"
-        f"Company Description: {company_summary}\n\nAssistant:"
-    )
-    payload = {
-        "prompt": prompt_text,
-        "max_tokens_to_sample": 50,
-        "temperature": 0.7
-    }
-    for attempt in range(retries):
-        try:
-            response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
-            response_body = json.loads(response['body'].read())
-            ratios_text = response_body.get('completion', '').strip()
-            pe_match = re.search(r'P/E.*?(\d+(\.\d+)?)', ratios_text)
-            ps_match = re.search(r'P/S.*?(\d+(\.\d+)?)', ratios_text)
-            return {
-                "Industry P/E": float(pe_match.group(1)) if pe_match else 'N/A',
-                "Industry P/S": float(ps_match.group(1)) if ps_match else 'N/A'
-            }
-        except Exception as e:
-            print(f"Error fetching industry valuation ratios: {e}")
-            if attempt < retries - 1:
-                time.sleep(delay)
-                delay *= 2
-    return None
-
-# Fetch industry beta from Bedrock
-def get_beta_from_bedrock(company_summary):
-    model_id = "anthropic.claude-v2"
-    prompt_text = (
-        f"Human: Provide the industry beta (volatility measure) as JSON in this format: "
-        f"{{'Industry Beta': <value>}}.\n\nCompany Description: {company_summary}\n\nAssistant:"
-    )
-    payload = {"prompt": prompt_text, "max_tokens_to_sample": 20, "temperature": 0.5}
-    expected_keys = ["Industry Beta"]
-
-    try:
-        response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
-        response_body = response['body'].read().decode()
-        industry_data, missing_fields = validate_json_response(response_body, expected_keys)
-        return industry_data.get('Industry Beta'), missing_fields
-    except Exception as e:
-        print(f"Error fetching industry beta: {e}")
-        return "N/A (Data not available)", expected_keys
-
-
-# Emerging Market Trends using Bedrock
-def get_emerging_market_trends_from_bedrock(company_summary, retries=5, delay=1):
-    model_id = "anthropic.claude-v2"
-    prompt_text = (
-        f"Human: Based on the company description below, list emerging market trends relevant to this company.\n\n"
-        f"Company Description: {company_summary}\n\nAssistant:"
-    )
-    payload = {
-        "prompt": prompt_text,
-        "max_tokens_to_sample": 100,
-        "temperature": 0.7
-    }
-    for attempt in range(retries):
-        try:
-            response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
-            response_body = json.loads(response['body'].read())
-            trends_text = response_body.get('completion', '').strip()
-            return trends_text.split(', ')  # Assuming Bedrock returns a comma-separated list
-        except Exception as e:
-            print(f"Error fetching emerging market trends: {e}")
-            if attempt < retries - 1:
-                time.sleep(delay)
-                delay *= 2
-    return None
-
-# Industry Revenue with Explicit Market Mention
-def get_industry_revenue_from_bedrock(company_summary, retries=5, delay=1):
-    model_id = "anthropic.claude-v2"
-    prompt_text = (
-        f"Human: Based on the company description below, identify the relevant industry or market sector and provide only the total annual revenue for this industry in USD as a numeric value. "
-        f"Also, indicate the market sector (e.g., 'e-commerce' or 'software solutions') in your response. Format your answer as follows and don't add or remove anything else:\n\n"
-        f"Industry: <market sector>, Revenue: <numeric value>\n\n"
-        f"Company Description: {company_summary}\n\nAssistant:"
-    )
-    payload = {
-        "prompt": prompt_text,
-        "max_tokens_to_sample": 50,
-        "temperature": 0.3
-    }
-    for attempt in range(retries):
-        try:
-            response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
-            response_body = json.loads(response['body'].read())
-            industry_revenue_text = response_body.get('completion', '').strip()
-            
-            # Example format check: "Industry: E-commerce, Revenue: 10000000"
-            match = re.match(r"Industry: (.+), Revenue: (\d+(\.\d+)?)", industry_revenue_text)
-            if match:
-                industry = match.group(1).strip()
-                revenue = float(match.group(2))
-                return industry, revenue
-            print("Received invalid format for industry revenue.")
-            return None, None
-        except Exception as e:
-            print(f"Error fetching industry revenue: {e}")
-            if attempt < retries - 1:
-                time.sleep(delay)
-                delay *= 2
-    return None, None
 
     
 # Beta Value using Bedrock
@@ -774,78 +517,194 @@ def get_beta_from_bedrock(company_summary, retries=5, delay=1):
                 delay *= 2
     return None, ["Beta Value"]
 
-# Industry Growth Rate with Explicit Market Mention
-def get_industry_growth_from_bedrock(company_summary, retries=5, delay=1):
-    model_id = "anthropic.claude-v2"
-    prompt_text = (
-        f"Human: Based on the company description below, identify the relevant industry or market sector and provide only the Year-over-Year revenue growth rate as a percentage. "
-        f"Format your answer as follows and don't add or remove anything else:\n\n"
-        f"Industry: <market sector>, Growth Rate: <numeric value>\n\n"
-        f"Company Description: {company_summary}\n\nAssistant:"
-    )
-    payload = {
-        "prompt": prompt_text,
-        "max_tokens_to_sample": 50,
-        "temperature": 0.3
-    }
-    for attempt in range(retries):
-        try:
-            response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
-            response_body = json.loads(response['body'].read())
-            growth_text = response_body.get('completion', '').strip()
-            
-            # Example format check: "Industry: E-commerce, Growth Rate: 5"
-            match = re.match(r"Industry: (.+), Growth Rate: (\d+(\.\d+)?)", growth_text)
-            if match:
-                industry = match.group(1).strip()
-                growth_rate = float(match.group(2))
-                return industry, growth_rate
-            print("Received invalid format for industry growth rate.")
-            return None, None
-        except Exception as e:
-            print(f"Error fetching industry growth rate: {e}")
-            if attempt < retries - 1:
-                time.sleep(delay)
-                delay *= 2
-    return None, None
+
+def stock_price_prediction(estimated_shares=1000000):
+    try:
+        # Ensure required fields are present
+        if 'Total Revenue' not in company_data or 'Total Net Income' not in company_data:
+            print("Missing required data for stock price prediction.")
+            return "N/A", [], "N/A", "N/A"
+
+        # Estimate valuation and market-to-book ratio using dynamic revenue multiple
+        company_valuation, market_to_book_ratio = estimate_company_valuation(company_data)
+
+        # Use only the valuation (first element of the tuple) for IPO stock price calculation
+        valuation = company_valuation
+
+        # Updated data with valuation as target for prediction
+        target_ipo_prices = [valuation]
+
+        # Organize data into features for prediction
+        data = {
+            'Total_Revenue': [company_data['Total Revenue'].iloc[0]],
+            'Net_Income': [company_data['Total Net Income'].iloc[0]],
+            'Total_Expenses': [company_data['Total Expenses'].iloc[0]],
+            'Debt_to_Equity_Ratio': [company_data['Debt-to-Equity Ratio'].iloc[0]],
+            'EBITDA': [company_data['Total Operating Income'].iloc[0]]
+        }
+        df = pd.DataFrame(data)
+
+        # Check if only one sample is available
+        if len(df) > 1:
+            X_train, X_test, y_train, y_test = train_test_split(df, target_ipo_prices, test_size=0.2, random_state=42)
+            model = LinearRegression()
+            model.fit(X_train, y_train)
+            predictions = model.predict(X_test)
+            mae = mean_absolute_error(y_test, predictions)
+        else:
+            model = LinearRegression()
+            model.fit(df, target_ipo_prices)
+            predictions = model.predict(df)
+            mae = 0  # MAE is not meaningful with a single data point
+
+        # Calculate IPO stock price from the valuation
+        ipo_stock_price = valuation / estimated_shares
+        return mae, predictions, valuation, ipo_stock_price
+
+    except Exception as e:
+        print(f"Error in stock price prediction: {e}")
+        return "N/A", [], "N/A", "N/A"
 
 
 
+def calculate_valuation_ratios(df):
+    try:
+        required_fields = ["Total Revenue", "Total Net Income", "Total Equity"]
+        missing_fields = [field for field in required_fields if field not in df or pd.isna(df[field].iloc[0])]
+
+        if missing_fields:
+            return {"Error": f"Valuation Ratios are not computable because {', '.join(missing_fields)} are missing."}
+
+        valuation_ratios = {}
+        total_revenue = df['Total Revenue'].iloc[0]
+        net_income = df['Total Net Income'].iloc[0]
+        total_equity = df['Total Equity'].iloc[0]
+
+        # Price-to-Earnings Ratio (P/E)
+        valuation_ratios['Price-to-Earnings Ratio (P/E)'] = total_revenue / net_income if net_income else 'N/A'
+        
+        # Price-to-Sales Ratio (P/S)
+        valuation_ratios['Price-to-Sales Ratio (P/S)'] = total_revenue / total_revenue if total_revenue else 'N/A'
+
+        # Price-to-Book Ratio (P/B)
+        valuation_ratios['Price-to-Book Ratio (P/B)'] = total_revenue / total_equity if total_equity else 'N/A'
+        
+        return valuation_ratios
+
+    except Exception as e:
+        print(f"Error calculating valuation ratios: {e}")
+        return {"Error": "Unable to calculate valuation ratios"}
+
+
+
+
+def calculate_risk_metrics_with_thresholds(df):
+    try:
+        risk_metrics = {
+            "Debt-to-Equity Ratio": df['Debt-to-Equity Ratio'].iloc[0],
+            "Profit Margin": df['Net Profit Margin'].iloc[0]
+        }
+        
+        thresholds = {
+            "Debt-to-Equity Ratio": {"Low": 0.5, "High": 1.5},
+            "Profit Margin": {"Low": 0.1, "High": 0.3}
+        }
+        
+        # Create a new dictionary to store risk metrics along with their categories
+        categorized_risk_metrics = risk_metrics.copy()
+        
+        for metric, value in risk_metrics.items():
+            if metric in thresholds:
+                if value < thresholds[metric]["Low"]:
+                    categorized_risk_metrics[f"{metric} Risk Category"] = "Low"
+                elif value > thresholds[metric]["High"]:
+                    categorized_risk_metrics[f"{metric} Risk Category"] = "High"
+                else:
+                    categorized_risk_metrics[f"{metric} Risk Category"] = "Moderate"
+        
+        return categorized_risk_metrics
+    
+    except Exception as e:
+        print(f"Error calculating risk metrics: {e}")
+        return {"Error": "Unable to calculate risk metrics"}
+
+
+def forecast_growth(df, growth_rate=0.05):
+    try:
+        required_fields = ["Total Revenue", "Total Net Income"]
+        missing_fields = [field for field in required_fields if field not in df or pd.isna(df[field].iloc[0])]
+
+        if missing_fields:
+            return f"Growth Forecast is not computable because {', '.join(missing_fields)} are missing."
+
+        forecasts = {}
+        total_revenue = df['Total Revenue'].iloc[0]
+        net_income = df['Total Net Income'].iloc[0]
+
+        # Simple growth projections based on a static growth rate
+        forecasts['Forecasted Revenue Growth'] = total_revenue * (1 + growth_rate)
+        forecasts['Forecasted Net Income Growth'] = net_income * (1 + growth_rate)
+
+        return forecasts
+
+    except Exception as e:
+        print(f"Error forecasting growth: {e}")
+        return {"Error": "Unable to forecast growth"}
 
 
 def get_industry_valuation_ratios_from_bedrock(company_summary, retries=5, delay=1):
     model_id = "anthropic.claude-v2"
     prompt_text = (
-        f"Human: Based on the company description below, provide the industry Price-to-Earnings (P/E) ratio and Price-to-Sales (P/S) ratio as numeric values. "
-        f"Return in the following JSON format only: {{'Industry P/E': <P/E value>, 'Industry P/S': <P/S value>}}.\n\n"
+        f"Human: Based on the company description below, provide the average Price-to-Earnings (P/E) and Price-to-Sales (P/S) ratios for the industry.\n\n"
         f"Company Description: {company_summary}\n\nAssistant:"
     )
     payload = {
         "prompt": prompt_text,
         "max_tokens_to_sample": 50,
-        "temperature": 0.5
+        "temperature": 0.7
     }
     for attempt in range(retries):
         try:
             response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
             response_body = json.loads(response['body'].read())
             ratios_text = response_body.get('completion', '').strip()
-            
-            # Validate JSON format
-            try:
-                industry_ratios = json.loads(ratios_text)
-                if all(k in industry_ratios for k in ["Industry P/E", "Industry P/S"]):
-                    return industry_ratios
-            except json.JSONDecodeError:
-                print("Received invalid JSON format for industry valuation ratios.")
-            return {"Industry P/E": "N/A", "Industry P/S": "N/A"}
-
+            pe_match = re.search(r'P/E.*?(\d+(\.\d+)?)', ratios_text)
+            ps_match = re.search(r'P/S.*?(\d+(\.\d+)?)', ratios_text)
+            return {
+                "Industry P/E": float(pe_match.group(1)) if pe_match else 'N/A',
+                "Industry P/S": float(ps_match.group(1)) if ps_match else 'N/A'
+            }
         except Exception as e:
             print(f"Error fetching industry valuation ratios: {e}")
             if attempt < retries - 1:
                 time.sleep(delay)
                 delay *= 2
-    return {"Industry P/E": "N/A", "Industry P/S": "N/A"}
+    return None
+
+
+def get_emerging_market_trends_from_bedrock(company_summary, retries=5, delay=1):
+    model_id = "anthropic.claude-v2"
+    prompt_text = (
+        f"Human: Based on the company description below, list emerging market trends relevant to this company.\n\n"
+        f"Company Description: {company_summary}\n\nAssistant:"
+    )
+    payload = {
+        "prompt": prompt_text,
+        "max_tokens_to_sample": 100,
+        "temperature": 0.7
+    }
+    for attempt in range(retries):
+        try:
+            response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
+            response_body = json.loads(response['body'].read())
+            trends_text = response_body.get('completion', '').strip()
+            return trends_text.split(', ')  # Assuming Bedrock returns a comma-separated list
+        except Exception as e:
+            print(f"Error fetching emerging market trends: {e}")
+            if attempt < retries - 1:
+                time.sleep(delay)
+                delay *= 2
+    return None
 
 
 # Integrate the improved Bedrock function calls in the analysis
@@ -957,7 +816,15 @@ def get_industry_valuation_ratios_from_bedrock(company_summary, retries=5, delay
 #     print("\n=== End of Analysis Report ===\n")
 
 # # Call display_analysis function to print analyses
-# display_analysis(company_data)
+def fill_with_sources(data, source_dict):
+    if isinstance(data, dict):  # Ensure data is a dict
+        def get_value_or_placeholder(value, source):
+            return value if value != "Not Present" else {"N/A": source}
+
+        return {k: get_value_or_placeholder(v, source_dict.get(k, "Unknown Source")) for k, v in data.items()}
+    else:
+        return {"Error": "Invalid data format received."}
+
 
 # Function to calculate market share
 def calculate_market_share(company_revenue, industry_revenue):
@@ -985,11 +852,8 @@ def convert_to_serializable(obj):
         return float(obj)
     return obj
 
-# Unpacking and organizing output in generate_json_output
-def generate_json_output(df):
-    def get_value_or_placeholder(value, source):
-        return value if value != "N/A" else {value: source}
-
+# Unpacking and organizing output in generate_analysis_json
+def generate_analysis_json(df):
     # Mapping of each field to its source
     field_sources = {
         "Total Revenue": "report",
@@ -1027,55 +891,78 @@ def generate_json_output(df):
     estimated_shares = 1000000  # Example value
     eps = calculate_eps(df, estimated_shares)
 
-    # Fill missing data with sources
-    def fill_with_sources(data, source_dict):
-        return {k: get_value_or_placeholder(v, source_dict[k]) for k, v in data.items()}
+    # Calculate risk metrics
+    risk_metrics = calculate_risk_metrics_with_thresholds(df)
 
-    health_summary = fill_with_sources(financial_health_summary(df), field_sources)
-    expenses = fill_with_sources(expense_breakdown(df), field_sources)
-    competitor_df = competitor_comparison(df)
+    # Forecast growth
+    growth_forecast = forecast_growth(df)
+
+    # Get industry valuation ratios
+    industry_valuation_ratios = get_industry_valuation_ratios_from_bedrock(df['Summary'].iloc[0])
+
+    # Get emerging market trends
+    emerging_market_trends = get_emerging_market_trends_from_bedrock(df['Summary'].iloc[0])
+
+    # Calculate stock price prediction to get MAE
+    mae, predictions, company_valuation, ipo_stock_price = stock_price_prediction(estimated_shares)
 
     # Prepare data with sources indicated for missing fields
     output = {
         "Financial Health Summary": {
-            "Metrics": health_summary,
+            "Metrics": financial_health_summary(df),
             "Industry Benchmarks": fill_with_sources(industry_benchmarks, field_sources),
-            "Detailed Analysis": generate_summary_analysis("Financial Health Summary", health_summary, {})
+            "Detailed Analysis": generate_summary_analysis("Financial Health Summary", financial_health_summary(df), {})
         },
         "Expense Breakdown": {
-            "Expenses": expenses,
+            "Expenses": expense_breakdown(df),
             "Industry Expense Ratios": fill_with_sources(industry_expenses, field_sources),
-            "Detailed Analysis": generate_summary_analysis("Expense Breakdown", expenses, {})
+            "Detailed Analysis": generate_summary_analysis("Expense Breakdown", expense_breakdown(df), {})
         },
         "Competitor Comparison": {
-            "Competitors Data": convert_to_serializable(competitor_df),
-            "Detailed Analysis": generate_summary_analysis("Competitor Comparison", competitor_df.to_string(index=False), {})
+            "Competitors Data": convert_to_serializable(competitor_comparison(df)),
+            "Detailed Analysis": generate_summary_analysis("Competitor Comparison", competitor_comparison(df).to_string(index=False), {})
         },
         "Company Valuation": {
-            "Estimated Valuation": f"${valuation:,.2f}" if valuation != "N/A" else {"Estimated Valuation": "bedrock"},
-            "Market-to-Book Ratio": f"{market_to_book_ratio:.2f}" if market_to_book_ratio != 'N/A' else {"Market-to-Book Ratio": "bedrock"},
-            "Detailed Analysis": generate_summary_analysis("Company Valuation", f"Estimated Valuation: ${valuation:,.2f}", {})
+            "Estimated Valuation": f"${valuation:,.2f}" if isinstance(valuation, (int, float)) else {"N/A": "bedrock"},
+            "Market-to-Book Ratio": f"{market_to_book_ratio:.2f}" if isinstance(market_to_book_ratio, (int, float)) else {"N/A": "bedrock"},
+            "Detailed Analysis": generate_summary_analysis("Company Valuation", f"Estimated Valuation: ${valuation:,.2f}" if isinstance(valuation, (int, float)) else "N/A", {})
         },
         "Earnings Per Share (EPS)": {
-            "EPS": f"${eps:.2f}" if eps != "N/A" else {"EPS": "report"},
-            "Detailed Analysis": generate_summary_analysis("Earnings Per Share", f"Earnings Per Share (EPS): ${eps:.2f}", {})
+            "EPS": f"${eps:.2f}" if isinstance(eps, (int, float)) else {"N/A": "bedrock"},
+            "Detailed Analysis": generate_summary_analysis("Earnings Per Share", f"Earnings Per Share (EPS): ${eps:.2f}" if isinstance(eps, (int, float)) else "N/A", {})
         },
         "Market Analysis": {
-            "Market Share": calculate_market_share(df['Total Revenue'].iloc[0], industry_revenue) if industry_revenue != "N/A" else {"Market Share": "bedrock"},
-            "Industry Revenue Growth": industry_growth if industry_growth != "N/A" else {"Industry Revenue Growth": "bedrock"},
-            "Beta (Volatility)": beta_value if beta_value != "N/A" else {"Beta (Volatility)": "bedrock"}
+            "Market Share": calculate_market_share(df['Total Revenue'].iloc[0], industry_revenue) if 'Total Revenue' in df and isinstance(calculate_market_share(df['Total Revenue'].iloc[0], industry_revenue), (int, float)) else {"N/A": "bedrock"},
+            "Industry Revenue Growth": industry_growth if isinstance(industry_growth, (int, float)) else {"N/A": "bedrock"},
+            "Beta (Volatility)": beta_value if isinstance(beta_value, (int, float)) else {"N/A": "bedrock"}
+        },
+        "Valuation Ratios": {
+            "Valuation Ratios": fill_with_sources(calculate_valuation_ratios(df), field_sources),
+            "Detailed Analysis": generate_summary_analysis("Valuation Ratios", calculate_valuation_ratios(df), {})
+        },
+        "Risk Metrics": {
+            "Risk Metrics": fill_with_sources(risk_metrics, field_sources),
+            "Detailed Analysis": generate_summary_analysis("Risk Metrics", risk_metrics, {})
+        },
+        "Growth Forecast": {
+            "Forecasts": fill_with_sources(growth_forecast, field_sources),
+            "Detailed Analysis": generate_summary_analysis("Growth Forecast", growth_forecast, {})
+        },
+        "Emerging Market Trends": {
+            "Trends": emerging_market_trends if emerging_market_trends else {"N/A": "bedrock"},
+            "Detailed Analysis": generate_summary_analysis("Emerging Market Trends", emerging_market_trends, {})
         },
         "Estimated Company Valuation Summary": {
-            "Final Estimated Valuation": f"${valuation:,.2f}" if valuation != "N/A" else {"Final Estimated Valuation": "bedrock"},
-            "Mean Absolute Error": "0.00",
-            "Predicted IPO Valuation": f"${valuation:,.2f}" if valuation != "N/A" else {"Predicted IPO Valuation": "bedrock"},
-            "Estimated IPO Stock Price per Share": f"${eps:.2f}" if eps != "N/A" else {"Estimated IPO Stock Price per Share": "report"}
+            "Final Estimated Valuation": f"${valuation:,.2f}" if isinstance(valuation, (int, float)) else {"N/A": "bedrock"},
+            "Mean Absolute Error": f"{mae:.2f}" if isinstance(mae, (int, float)) else {"N/A": "bedrock"},
+            "Predicted IPO Valuation": f"${predictions[0]:,.2f}" if isinstance(predictions, list) and predictions else {"N/A": "bedrock"},
+            "Estimated IPO Stock Price per Share": f"${ipo_stock_price:.2f}" if isinstance(ipo_stock_price, (int, float)) else {"N/A": "bedrock"}
         }
     }
     
     return json.dumps(convert_to_serializable(output), indent=4)
 
-# Call generate_json_output to create JSON output with source-indicated placeholders
-json_output = generate_json_output(company_data)
+# Call generate_analysis_json to create JSON output with source-indicated placeholders
+json_output = generate_analysis_json(company_data)
 print("=== JSON Output for UI ===")
 print(json_output)
