@@ -22,34 +22,33 @@ session = boto3.Session(
 
 client = session.client('bedrock-runtime')
 
-# EXEMPLE TODO: LOAD DATA DU CSV EN DICT
-csv_data = {
-    'Report ID': ['Report_001'],
-    'Company Name': ['PrivateTech'],
-    'Fiscal Year': [2022],
-    'Report Date': ['2022-12-31'],
-    'Currency': ['USD'],
-    'Summary': ['PrivateTech develops software solutions for e-commerce optimization in North America.'],
-    'Total Revenue': [5006780],
-    'Total Net Income': [707800],
-    'Total Operating Income': [609800],
-    'Total Expenses': [4309700],
-    'Cost of Goods Sold (COGS)': [2500560],
-    'Selling, General, and Administrative (SG&A)': [1225000],
-    'Research and Development (R&D)': [400180],
-    'Depreciation and Amortization': [200000],
-    'Interest Expense': [100000],
-    'Other Expenses': ['Not Present'],
-    'Total Debt': [2000000],
-    'Debt-to-Equity Ratio': [0.5],
-    'Long-Term Debt': [1500000],
-    'Short-Term Debt': [500000],
-    'Total Equity': [4000000],
-    'Gross Profit Margin': [0.55],
-    'Operating Profit Margin': [0.12],
-    'Net Profit Margin': [0.14],
-    'Return on Assets (ROA)': [0.10],
-    'Return on Equity (ROE)': [0.175]
+
+input_json = {
+    'Company Name': 'PrivateTech',
+    'Fiscal Year': 2022,
+    'Report Date': '2022-12-31',
+    'Currency': 'USD',
+    'Summary': 'PrivateTech develops software solutions for e-commerce optimization in North America.',
+    'Total earnings': 5006780,
+    'Total Net Income': 707800,
+    'Total Operating Income': 609800,
+    'Total Expenses': 4309700,
+    'Cost of Goods Sold (COGS)': 2500560,
+    'Selling, General, and Administrative (SG&A)': 1225000,
+    'Research and Development (R&D)': 400180,
+    'Depreciation and Amortization': 200000,
+    'Interest Expense': 100000,
+    'Other Expenses': None,  # This will not be included
+    'Total Debt': 2000000,
+    'Debt-to-Equity Ratio': 0.5,
+    'Long-Term Debt': 1500000,
+    'Short-Term Debt': 500000,
+    'Total Equity': 4000000,
+    'Gross Profit Margin': 0.55,
+    'Operating Profit Margin': 0.12,
+    'Net Profit Margin': 0.14,
+    'Return on Assets (ROA)': 0.10,
+    'Return on Equity (ROE)': 0.175
 }
 
 company_data = pd.DataFrame(csv_data)
@@ -556,15 +555,15 @@ def get_beta_from_bedrock(company_summary, retries=5, delay=1):
     return None, ["Beta Value"]
 
 
-def stock_price_prediction(estimated_shares=1000000):
+def stock_price_prediction(company_financial_data, estimated_shares=1000000):
     try:
         # Ensure required fields are present
-        if 'Total Revenue' not in company_data or 'Total Net Income' not in company_data:
+        if 'Total Revenue' not in company_financial_data or 'Total Net Income' not in company_financial_data:
             print("Missing required data for stock price prediction.")
             return "N/A", [], "N/A", "N/A"
 
         # Estimate valuation and market-to-book ratio using dynamic revenue multiple
-        company_valuation, market_to_book_ratio = estimate_company_valuation(company_data)
+        company_valuation, market_to_book_ratio = estimate_company_valuation(company_financial_data)
 
         # Use only the valuation (first element of the tuple) for IPO stock price calculation
         valuation = company_valuation
@@ -574,11 +573,11 @@ def stock_price_prediction(estimated_shares=1000000):
 
         # Organize data into features for prediction
         data = {
-            'Total_Revenue': [company_data['Total Revenue'].iloc[0]],
-            'Net_Income': [company_data['Total Net Income'].iloc[0]],
-            'Total_Expenses': [company_data['Total Expenses'].iloc[0]],
-            'Debt_to_Equity_Ratio': [company_data['Debt-to-Equity Ratio'].iloc[0]],
-            'EBITDA': [company_data['Total Operating Income'].iloc[0]]
+            'Total_Revenue': [company_financial_data['Total Revenue'].iloc[0]],
+            'Net_Income': [company_financial_data['Total Net Income'].iloc[0]],
+            'Total_Expenses': [company_financial_data['Total Expenses'].iloc[0]],
+            'Debt_to_Equity_Ratio': [company_financial_data['Debt-to-Equity Ratio'].iloc[0]],
+            'EBITDA': [company_financial_data['Total Operating Income'].iloc[0]]
         }
         df = pd.DataFrame(data)
 
@@ -745,115 +744,7 @@ def get_emerging_market_trends_from_bedrock(company_summary, retries=5, delay=1)
     return None
 
 
-# Integrate the improved Bedrock function calls in the analysis
-# def display_analysis(df):
-#     linked_metrics = {}
-    
-#     health_summary = financial_health_summary(df)
-#     expenses = expense_breakdown(df)
-#     competitor_df = competitor_comparison(company_data)
-#     valuation, market_to_book_ratio = estimate_company_valuation(df)  
-#     estimated_shares = 1000000  # EXAMPLE: can be customized as needed
-#     eps = calculate_eps(df, estimated_shares)
-#     mae, predictions, company_valuation, ipo_stock_price = stock_price_prediction(estimated_shares=estimated_shares)
-    
-#     print("=== Analysis Report ===\n")
-    
-#     print("1. Financial Health Summary:")
-#     print("   --------------------------")
-#     for key, value in health_summary.items():
-#         print(f"   {key}: {value}")
-#     linked_metrics['Financial Health Summary'] = health_summary
-#     print("   Detailed Analysis:")
-#     print("   " + generate_summary_analysis("Financial Health Summary", health_summary, linked_metrics).replace("\n", "\n   "))
-    
-#     time.sleep(1)
-    
-#     print("\n2. Expense Breakdown:")
-#     print("   -------------------")
-#     for key, value in expenses.items():
-#         print(f"   {key}: {value}%")
-#     linked_metrics['Expense Breakdown'] = expenses
-#     print("   Detailed Analysis:")
-#     print("   " + generate_summary_analysis("Expense Breakdown", expenses, linked_metrics).replace("\n", "\n   "))
-    
-#     time.sleep(1)
-
-#     print("\n3. Competitor Comparison:")
-#     print("   -----------------------")
-#     print("   Competitors Data:")
-#     print("   " + competitor_df.to_string(index=False).replace("\n", "\n   "))
-#     linked_metrics['Competitor Comparison'] = competitor_df.to_dict()
-#     print("   Detailed Analysis:")
-#     print("   " + generate_summary_analysis("Competitor Comparison", competitor_df.to_string(index=False), linked_metrics).replace("\n", "\n   "))
-    
-#     time.sleep(1)
-
-#     print("\n4. Estimated Company Valuation:")
-#     print("   ----------------------------")
-#     print(f"   Estimated Valuation: ${valuation:,.2f}")
-#     print(f"   Market-to-Book Ratio: {market_to_book_ratio:.2f}" if market_to_book_ratio != 'N/A' else "   Market-to-Book Ratio: N/A")
-#     linked_metrics['Company Valuation'] = {"Estimated Valuation": f"${valuation:,.2f}"}
-#     print("   Detailed Analysis:")
-#     print("   " + generate_summary_analysis("Company Valuation", f"Estimated Valuation: ${valuation:,.2f}", linked_metrics).replace("\n", "\n   "))
-    
-#     time.sleep(1)
-
-#     print("\n5. Earnings Per Share (EPS):")
-#     print("   --------------------------")
-#     print(f"   EPS: ${eps:.2f}")
-#     linked_metrics['Earnings Per Share'] = {"EPS": f"${eps:.2f}"}
-#     print("   Detailed Analysis:")
-#     print("   " + generate_summary_analysis("Earnings Per Share", f"Earnings Per Share (EPS): ${eps:.2f}", linked_metrics).replace("\n", "\n   "))
-    
-#     time.sleep(1)
-
-#     print("\n6. Market Analysis:")
-#     print("   ------------------")
-    
-#     # Market Share Calculation using Bedrock
-#     industry, industry_revenue = get_industry_revenue_from_bedrock(df['Summary'].iloc[0])
-#     if industry_revenue is not None:
-#         market_share = calculate_market_share(df['Total Revenue'].iloc[0], industry_revenue)
-#         print(f"   Industry: {industry}")
-#         print(f"   Market Share: {market_share}%")
-#     else:
-#         print("   Market Share: N/A%")
-
-#     # Industry Revenue Growth
-#     industry, industry_growth_rate = get_industry_growth_from_bedrock(df['Summary'].iloc[0])
-#     if industry_growth_rate is not None:
-#         print(f"   Industry: {industry}")
-#         print(f"   Industry Revenue Growth (YoY): {industry_growth_rate}%")
-#     else:
-#         print("   Industry Revenue Growth (YoY): N/A")
-
-#     # Industry Valuation Ratios
-#     industry_valuation_ratios = get_industry_valuation_ratios_from_bedrock(df['Summary'].iloc[0])
-#     print("   Industry Valuation Ratios:")
-#     for key, value in industry_valuation_ratios.items():
-#         print(f"      {key}: {value}")
-    
-#     # Beta Value for Risk Analysis
-#     beta_value = get_beta_from_bedrock(df['Summary'].iloc[0])
-#     print(f"   Beta (Volatility): {beta_value}" if beta_value else "   Beta (Volatility): N/A")
-    
-#     # Emerging Market Trends
-#     emerging_markets = get_emerging_market_trends_from_bedrock(df['Summary'].iloc[0])
-#     print("   Emerging Market Trends:")
-#     for trend in emerging_markets:
-#         print(f"      - {trend}")
-    
-#     print("\n7. Estimated Company Valuation Summary:")
-#     print("   -------------------------------------")
-#     print(f"   Final Estimated Valuation: ${company_valuation:,.2f}")
-#     print(f"   Mean Absolute Error: {mae:.2f}")
-#     print(f"   Predicted IPO Valuation: ${predictions[0]:,.2f}")
-#     print(f"   Estimated IPO Stock Price per Share: ${ipo_stock_price:.2f}")
-    
-#     print("\n=== End of Analysis Report ===\n")
-
-# # Call display_analysis function to print analyses
+# Call display_analysis function to print analyses
 def fill_with_sources(data, source_dict):
     if isinstance(data, dict):  # Ensure data is a dict
         def get_value_or_placeholder(value, source):
@@ -891,7 +782,41 @@ def convert_to_serializable(obj):
     return obj
 
 # Unpacking and organizing output in generate_analysis_json
-def generate_analysis_json(df):
+def generate_analysis_json(input_json):
+    # Transform the input JSON to the required format for analysis
+    input_json = {
+        'Report ID': ['Report_001'],  # Assuming a static report ID for example
+        'Company Name': [input_json.get('Company Name', 'Unknown')],
+        'Fiscal Year': [input_json.get('Fiscal Year')],
+        'Report Date': [input_json.get('Report Date')],
+        'Currency': [input_json.get('Currency', 'USD')],
+        'Summary': [input_json.get('Summary', 'No summary available.')],
+        'Total Revenue': [input_json.get('Total earnings')],  # Assuming 'Total earnings' is the correct key for revenue
+        'Total Net Income': [input_json.get('Total Net Income')],
+        'Total Operating Income': [input_json.get('Total Operating Income')],
+        'Total Expenses': [input_json.get('Total Expenses')],
+        'Cost of Goods Sold (COGS)': [input_json.get('Cost of Goods Sold (COGS)', 0)],
+        'Selling, General, and Administrative (SG&A)': [input_json.get('Selling, General, and Administrative (SG&A)', 0)],
+        'Research and Development (R&D)': [input_json.get('Research and Development (R&D)', 0)],
+        'Depreciation and Amortization': [input_json.get('Depreciation and Amortization', 0)],
+        'Interest Expense': [input_json.get('Interest Expense', 0)],
+        'Other Expenses': [input_json.get('Other Expenses', 'Not Present')],
+        'Total Debt': [input_json.get('Total Debt', 0)],
+        'Debt-to-Equity Ratio': [input_json.get('Debt-to-Equity Ratio', 0)],
+        'Long-Term Debt': [input_json.get('Long-Term Debt', 0)],
+        'Short-Term Debt': [input_json.get('Short-Term Debt', 0)],
+        'Total Equity': [input_json.get('Total Equity', 0)],
+        'Gross Profit Margin': [input_json.get('Gross Profit Margin', 0)],
+        'Operating Profit Margin': [input_json.get('Operating Profit Margin', 0)],
+        'Net Profit Margin': [input_json.get('Net Profit Margin', 0)],
+        'Return on Assets (ROA)': [input_json.get('Return on Assets (ROA)', 0)],
+        'Return on Equity (ROE)': [input_json.get('Return on Equity (ROE)', 0)]
+    }
+
+    # Remove keys with null values
+    report_data = {k: v for k, v in input_json.items() if v is not None}
+    report_data = pd.DataFrame(csv_data)
+
     # Mapping of each field to its source
     field_sources = {
         "Total Revenue": "report",
@@ -918,28 +843,28 @@ def generate_analysis_json(df):
     }
 
     # Fetch data and identify missing fields with sources
-    industry_benchmarks, _ = get_industry_benchmarks(df['Summary'].iloc[0])
-    industry_expenses, _ = get_industry_expense_ratios_from_bedrock(df['Summary'].iloc[0])
-    industry_revenue, _ = get_industry_revenue_from_bedrock(df['Summary'].iloc[0])
-    industry_growth, _ = get_industry_growth_from_bedrock(df['Summary'].iloc[0])
-    beta_value, _ = get_beta_from_bedrock(df['Summary'].iloc[0])
+    industry_benchmarks, _ = get_industry_benchmarks(report_data['Summary'].iloc[0])
+    industry_expenses, _ = get_industry_expense_ratios_from_bedrock(report_data['Summary'].iloc[0])
+    industry_revenue, _ = get_industry_revenue_from_bedrock(report_data['Summary'].iloc[0])
+    industry_growth, _ = get_industry_growth_from_bedrock(report_data['Summary'].iloc[0])
+    beta_value, _ = get_beta_from_bedrock(report_data['Summary'].iloc[0])
 
     # Calculate company valuation, market-to-book ratio, and EPS
-    valuation, market_to_book_ratio = estimate_company_valuation(df)
+    valuation, market_to_book_ratio = estimate_company_valuation(report_data)
     estimated_shares = 1000000  # Example value
-    eps = calculate_eps(df, estimated_shares)
+    eps = calculate_eps(report_data, estimated_shares)
 
     # Calculate risk metrics
-    risk_metrics = calculate_risk_metrics_with_thresholds(df)
+    risk_metrics = calculate_risk_metrics_with_thresholds(report_data)
 
     # Forecast growth
-    growth_forecast = forecast_growth(df)
+    growth_forecast = forecast_growth(report_data)
 
     # Get industry valuation ratios
-    industry_valuation_ratios = get_industry_valuation_ratios_from_bedrock(df['Summary'].iloc[0])
+    industry_valuation_ratios = get_industry_valuation_ratios_from_bedrock(report_data['Summary'].iloc[0])
 
     # Get emerging market trends
-    emerging_market_trends = get_emerging_market_trends_from_bedrock(df['Summary'].iloc[0])
+    emerging_market_trends = get_emerging_market_trends_from_bedrock(report_data['Summary'].iloc[0])
 
     # Calculate stock price prediction to get MAE
     mae, predictions, company_valuation, ipo_stock_price = stock_price_prediction(estimated_shares)
@@ -947,18 +872,18 @@ def generate_analysis_json(df):
     # Prepare data with sources indicated for missing fields
     output = {
         "Financial Health Summary": {
-            "Metrics": financial_health_summary(df),
+            "Metrics": financial_health_summary(report_data),
             "Industry Benchmarks": fill_with_sources(industry_benchmarks, field_sources),
-            "Detailed Analysis": generate_summary_analysis("Financial Health Summary", financial_health_summary(df), {})
+            "Detailed Analysis": generate_summary_analysis("Financial Health Summary", financial_health_summary(report_data), {})
         },
         "Expense Breakdown": {
-            "Expenses": expense_breakdown(df),
+            "Expenses": expense_breakdown(report_data),
             "Industry Expense Ratios": fill_with_sources(industry_expenses, field_sources),
-            "Detailed Analysis": generate_summary_analysis("Expense Breakdown", expense_breakdown(df), {})
+            "Detailed Analysis": generate_summary_analysis("Expense Breakdown", expense_breakdown(report_data), {})
         },
         "Competitor Comparison": {
-            "Competitors Data": convert_to_serializable(competitor_comparison(df)),
-            "Detailed Analysis": generate_summary_analysis("Competitor Comparison", competitor_comparison(df).to_string(index=False), {})
+            "Competitors Data": convert_to_serializable(competitor_comparison(report_data)),
+            "Detailed Analysis": generate_summary_analysis("Competitor Comparison", competitor_comparison(report_data).to_string(index=False), {})
         },
         "Company Valuation": {
             "Estimated Valuation": f"${valuation:,.2f}" if isinstance(valuation, (int, float)) else {"N/A": "bedrock"},
@@ -970,13 +895,13 @@ def generate_analysis_json(df):
             "Detailed Analysis": generate_summary_analysis("Earnings Per Share", f"Earnings Per Share (EPS): ${eps:.2f}" if isinstance(eps, (int, float)) else "N/A", {})
         },
         "Market Analysis": {
-            "Market Share": calculate_market_share(df['Total Revenue'].iloc[0], industry_revenue) if 'Total Revenue' in df and isinstance(calculate_market_share(df['Total Revenue'].iloc[0], industry_revenue), (int, float)) else {"N/A": "bedrock"},
+            "Market Share": calculate_market_share(report_data['Total Revenue'].iloc[0], industry_revenue) if 'Total Revenue' in report_data and isinstance(calculate_market_share(report_data['Total Revenue'].iloc[0], industry_revenue), (int, float)) else {"N/A": "bedrock"},
             "Industry Revenue Growth": industry_growth if isinstance(industry_growth, (int, float)) else {"N/A": "bedrock"},
             "Beta (Volatility)": beta_value if isinstance(beta_value, (int, float)) else {"N/A": "bedrock"}
         },
         "Valuation Ratios": {
-            "Valuation Ratios": fill_with_sources(calculate_valuation_ratios(df), field_sources),
-            "Detailed Analysis": generate_summary_analysis("Valuation Ratios", calculate_valuation_ratios(df), {})
+            "Valuation Ratios": fill_with_sources(calculate_valuation_ratios(report_data), field_sources),
+            "Detailed Analysis": generate_summary_analysis("Valuation Ratios", calculate_valuation_ratios(report_data), {})
         },
         "Risk Metrics": {
             "Risk Metrics": fill_with_sources(risk_metrics, field_sources),
@@ -1001,6 +926,6 @@ def generate_analysis_json(df):
     return json.dumps(convert_to_serializable(output), indent=4)
 
 # Call generate_analysis_json to create JSON output with source-indicated placeholders
-json_output = generate_analysis_json(company_data)
+json_output = generate_analysis_json(input_json)
 print("=== JSON Output for UI ===")
 print(json_output)
