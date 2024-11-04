@@ -2,7 +2,11 @@
 
 Finsight AI est un outil performant conçu pour automatiser et optimiser l'analyse financière des entreprises. En examinant les rapports financiers annuels, la plateforme génère des rapports personnalisés, comparant les données spécifiques de l’entreprise avec les points de référence du marché. Le résultat inclut des graphiques clairs qui mettent en avant les principaux indicateurs, tendances et performances, permettant aux parties prenantes d’obtenir des repères exploitables sur la position de l’entreprise par rapport aux standards de l'industrie.
 
-Cet outil à été créé en Javascript React et python
+Cet outil à été créé en Javascript React et python en collaboration avec les personnes suivantes:
+- Hossam Moustafa - @scriptmaze
+- Arnaud Grandisson - @ArnaudGrd
+- Ghali Chraibi - @ghalichraibi
+- Hubert Khouzam - @HubertKhouzam
 
 ---
 
