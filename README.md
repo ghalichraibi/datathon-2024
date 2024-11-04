@@ -6,7 +6,7 @@ Cet outil à été créé en Javascript React et python
 
 ## Table des matières
 
-- [Installation](#requirements)
+- [Pré-requis](##Pré-requis)
 - [Getting Started](#getting-started)
 - [Backend Setup](#backend-setup)
 - [Frontend Setup](#frontend-setup)
@@ -50,3 +50,29 @@ AWS_ACCESS_KEY_ID='your-aws-access-key-id'
 AWS_SECRET_ACCESS_KEY='your-secret-access-key'
 REGION_NAME='your-region-name'
 ```
+
+Il est maintenant possible de déployer le serveur Flask localement:
+```bash
+python your-app-name.py
+```
+Le serveur devrait être déployé a l'adresse `http://127.0.0.1:5000`
+
+## Setup pour le front-end
+
+- Ouvrir un nouveau terminal et naviguer vers le front-end:
+```bash
+cd client
+```
+
+- Installer les dépendances du front-end
+```bash
+npm ci
+```
+
+- Déployer le front-end localement:
+```bash
+npm start
+```
+Le UI devrait être déployé a l'adresse `http://localhost:3000`
+
+Finsight AI devrait maintenant être prêt à l'utilisation
