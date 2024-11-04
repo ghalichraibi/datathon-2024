@@ -47,9 +47,9 @@ const UploadPage = () => {
     console.log(result);
     setIsUploading(false);
     setIsComplete(true);
-    // setTimeout(() => {
-    //   navigate('/dashboard');
-    // }, 3000);
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 3000);
   }, [files, navigate]);
 
   return (
