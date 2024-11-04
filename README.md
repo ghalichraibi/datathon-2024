@@ -4,17 +4,6 @@ Finsight AI est un outil performant conçu pour automatiser et optimiser l'analy
 
 Cet outil à été créé en Javascript React et python
 
-## Table des matières
-
-- [Pré-requis](##Pré-requis)
-- [Getting Started](#getting-started)
-- [Backend Setup](#backend-setup)
-- [Frontend Setup](#frontend-setup)
-- [Running the Application](#running-the-application)
-- [API Documentation](#api-documentation)
-- [Deployment](#deployment)
-- [License](#license)
-
 ---
 
 ## Pré-requis
