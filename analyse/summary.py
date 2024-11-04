@@ -30,9 +30,9 @@ csv_data = {
     'Report Date': ['2022-12-31'],
     'Currency': ['USD'],
     'Summary': ['PrivateTech develops software solutions for e-commerce optimization in North America.'],
-    # 'Total Revenue': [5006780],
-    # 'Total Net Income': [707800],
-    # 'Total Operating Income': [609800],
+    'Total Revenue': [5006780],
+    'Total Net Income': [707800],
+    'Total Operating Income': [609800],
     'Total Expenses': [4309700],
     'Cost of Goods Sold (COGS)': [2500560],
     'Selling, General, and Administrative (SG&A)': [1225000],
@@ -67,7 +67,6 @@ def safe_access(df, column_name):
         return "Not Present"
 
 # Fetch industry benchmarks from Bedrock
-# Fetch industry benchmarks from Bedrock
 def get_industry_benchmarks(company_summary):
     model_id = "anthropic.claude-v2"
     prompt_text = (
@@ -82,21 +81,21 @@ def get_industry_benchmarks(company_summary):
         response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
         response_body = response['body'].read().decode()
 
-        # Extract the completion text from the response
         completion_text = json.loads(response_body).get('completion', '').strip()
 
-        # Format the string to a JSON-compatible format
-        json_compatible_text = completion_text.replace("'", "\"")  # Replace single quotes with double quotes
+        json_start = completion_text.find("{")
+        json_compatible_text = completion_text[json_start:].replace("'", "\"")
 
-        # Load the string as a JSON object
         benchmarks = json.loads(json_compatible_text)
         missing_fields = [key for key in expected_keys if key not in benchmarks]
 
-        print(response_body)
         return benchmarks, missing_fields
+    except json.JSONDecodeError as json_err:
+        print(f"JSON decode error: {json_err}")
+        return {key: {"N/A" : "bedrock"} for key in expected_keys}, expected_keys
     except Exception as e:
         print(f"Error fetching industry benchmarks: {e}")
-        return {key: "N/A (Data not available)" for key in expected_keys}, expected_keys
+        return {key: {"N/A" : "bedrock"} for key in expected_keys}, expected_keys
 
 
 # Example Financial Health Summary
@@ -146,7 +145,7 @@ def get_competitors_from_bedrock(summary, retries=5, delay=1):
     )
     payload = {
         "prompt": prompt_text,
-        "max_tokens_to_sample": 150,
+        "max_tokens_to_sample": 1000,
         "temperature": 0.7
     }
 
@@ -281,17 +280,28 @@ def get_industry_expense_ratios_from_bedrock(company_summary):
         f"{{'Industry COGS Ratio': <value>, 'Industry SG&A Ratio': <value>, 'Industry R&D Ratio': <value>, 'Industry Depreciation Ratio': <value>, 'Industry Interest Expense Ratio': <value>}}.\n\n"
         f"Company Description: {company_summary}\n\nAssistant:"
     )
-    payload = {"prompt": prompt_text, "max_tokens_to_sample": 50, "temperature": 0.5}
+    payload = {"prompt": prompt_text, "max_tokens_to_sample": 1000, "temperature": 0.5}
     expected_keys = ["Industry COGS Ratio", "Industry SG&A Ratio", "Industry R&D Ratio", "Industry Depreciation Ratio", "Industry Interest Expense Ratio"]
 
     try:
         response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
         response_body = response['body'].read().decode()
-        print(response_body)
-        return validate_json_response(response_body, expected_keys)
+
+        completion_text = json.loads(response_body).get('completion', '').strip()
+
+        json_start = completion_text.find("{")
+        json_compatible_text = completion_text[json_start:].replace("'", "\"")
+
+        expense_ratios = json.loads(json_compatible_text)
+        missing_fields = [key for key in expected_keys if key not in expense_ratios]
+
+        return expense_ratios, missing_fields
+    except json.JSONDecodeError as json_err:
+        print(f"JSON decode error: {json_err}")
+        return {key: {"N/A" : "bedrock"} for key in expected_keys}, expected_keys
     except Exception as e:
         print(f"Error fetching industry expense ratios: {e}")
-        return {key: "N/A (Data not available)" for key in expected_keys}, expected_keys
+        return {key: {"N/A" : "bedrock"} for key in expected_keys}, expected_keys
 
 
 # Expense Breakdown
@@ -356,7 +366,7 @@ def generate_summary_analysis(section_name, text, linked_metrics, retries=5, del
 
     payload = {
         "prompt": prompt_text,
-        "max_tokens_to_sample": 600,
+        "max_tokens_to_sample": 1000,
         "temperature": 0.7
     }
 
@@ -389,7 +399,6 @@ def generate_summary_analysis(section_name, text, linked_metrics, retries=5, del
 def get_revenue_multiple_from_bedrock(company_summary, financial_metrics, retries=5, delay=1):
     model_id = "anthropic.claude-v2"
     
-    # Refined prompt to request only the numeric value for the multiple
     prompt_text = (
         f"Human: Based on the following company profile and financial metrics, suggest a reasonable revenue multiple for valuation purposes. "
         f"Only provide the numeric value of the revenue multiple in your answer.\n\n"
@@ -400,7 +409,7 @@ def get_revenue_multiple_from_bedrock(company_summary, financial_metrics, retrie
     
     payload = {
         "prompt": prompt_text,
-        "max_tokens_to_sample": 10,  # Reduced token sample since we expect only a number
+        "max_tokens_to_sample": 1000,
         "temperature": 0.7
     }
 
@@ -411,11 +420,17 @@ def get_revenue_multiple_from_bedrock(company_summary, financial_metrics, retrie
                 body=json.dumps(payload),
                 contentType="application/json"
             )
-            response_body = json.loads(response['body'].read())
-            multiple_text = response_body.get('completion', '').strip()
+            response_body = response['body'].read().decode()
 
-            # Directly return the numeric multiple as a float if the response contains it
-            return float(multiple_text)
+            multiple_text = json.loads(response_body).get('completion', '').strip()
+
+            # Extract the numeric value
+            value = re.search(r'\d+\.?\d*', multiple_text)  # Matches numeric values
+            if value:
+                return float(value.group(0))
+            else:
+                print("No numeric value found in response for revenue multiple.")
+                return None
 
         except ValueError:
             print("The response did not contain a valid number for the revenue multiple.")
@@ -426,7 +441,7 @@ def get_revenue_multiple_from_bedrock(company_summary, financial_metrics, retrie
                 wait_time = delay + jitter
                 print(f"Throttling exception encountered. Retrying in {wait_time:.2f} seconds...")
                 time.sleep(wait_time)
-                delay *= 2  # Exponential backoff
+                delay *= 2
             else:
                 print("Maximum retries reached. Exiting.")
                 raise
@@ -450,17 +465,28 @@ def get_industry_revenue_from_bedrock(company_summary):
         f"Human: Provide the total annual revenue of the industry as a JSON with the following format: "
         f"{{'Industry Revenue': <value>}}.\n\nCompany Description: {company_summary}\n\nAssistant:"
     )
-    payload = {"prompt": prompt_text, "max_tokens_to_sample": 20, "temperature": 0.5}
+    payload = {"prompt": prompt_text, "max_tokens_to_sample": 1000, "temperature": 0.5}
     expected_keys = ["Industry Revenue"]
 
     try:
         response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
         response_body = response['body'].read().decode()
-        industry_data, missing_fields = validate_json_response(response_body, expected_keys)
-        return industry_data.get('Industry Revenue'), missing_fields
+
+        completion_text = json.loads(response_body).get('completion', '').strip()
+
+        json_start = completion_text.find("{")
+        json_compatible_text = completion_text[json_start:].replace("'", "\"")
+
+        industry_data = json.loads(json_compatible_text)
+        return industry_data.get('Industry Revenue'), []
+
+    except json.JSONDecodeError as json_err:
+        print(f"JSON decode error: {json_err}")
+        return {"N/A" : "bedrock"}, expected_keys
     except Exception as e:
         print(f"Error fetching industry revenue: {e}")
-        return "N/A (Data not available)", expected_keys
+        return {"N/A" : "bedrock"}, expected_keys
+
 
 # Fetch industry growth from Bedrock
 def get_industry_growth_from_bedrock(company_summary):
@@ -469,17 +495,27 @@ def get_industry_growth_from_bedrock(company_summary):
         f"Human: Provide the year-over-year growth rate for the industry as JSON with this format: "
         f"{{'Industry Growth Rate': <value>}}.\n\nCompany Description: {company_summary}\n\nAssistant:"
     )
-    payload = {"prompt": prompt_text, "max_tokens_to_sample": 20, "temperature": 0.5}
+    payload = {"prompt": prompt_text, "max_tokens_to_sample": 1000, "temperature": 0.5}
     expected_keys = ["Industry Growth Rate"]
 
     try:
         response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
         response_body = response['body'].read().decode()
-        industry_data, missing_fields = validate_json_response(response_body, expected_keys)
-        return industry_data.get('Industry Growth Rate'), missing_fields
+
+        completion_text = json.loads(response_body).get('completion', '').strip()
+
+        json_start = completion_text.find("{")
+        json_compatible_text = completion_text[json_start:].replace("'", "\"")
+
+        industry_data = json.loads(json_compatible_text)
+        return industry_data.get('Industry Growth Rate'), []
+
+    except json.JSONDecodeError as json_err:
+        print(f"JSON decode error: {json_err}")
+        return {"N/A" : "bedrock"}, expected_keys
     except Exception as e:
         print(f"Error fetching industry growth rate: {e}")
-        return "N/A (Data not available)", expected_keys
+        return {"N/A" : "bedrock"}, expected_keys
 
 
 
@@ -494,15 +530,17 @@ def get_beta_from_bedrock(company_summary, retries=5, delay=1):
     )
     payload = {
         "prompt": prompt_text,
-        "max_tokens_to_sample": 20,
+        "max_tokens_to_sample": 1000,
         "temperature": 0.3
     }
+    
     for attempt in range(retries):
         try:
             response = client.invoke_model(modelId=model_id, body=json.dumps(payload), contentType="application/json")
-            response_body = json.loads(response['body'].read())
-            beta_text = response_body.get('completion', '').strip()
+            response_body = response['body'].read().decode()
             
+            beta_text = json.loads(response_body).get('completion', '').strip()
+
             # Check if the response is a valid number
             if beta_text.replace('.', '', 1).isdigit():  # Allows one decimal point
                 return float(beta_text), []  # No missing fields
@@ -660,7 +698,7 @@ def get_industry_valuation_ratios_from_bedrock(company_summary, retries=5, delay
     )
     payload = {
         "prompt": prompt_text,
-        "max_tokens_to_sample": 50,
+        "max_tokens_to_sample": 10000,
         "temperature": 0.7
     }
     for attempt in range(retries):
@@ -690,7 +728,7 @@ def get_emerging_market_trends_from_bedrock(company_summary, retries=5, delay=1)
     )
     payload = {
         "prompt": prompt_text,
-        "max_tokens_to_sample": 100,
+        "max_tokens_to_sample": 10000,
         "temperature": 0.7
     }
     for attempt in range(retries):
