@@ -48,7 +48,6 @@
     "slick-carousel": "^1.8.1",
     "swr": "^2.2.5",
     "util": "^0.12.5",
-    "vite": "^5.2.10",
     "vite-jsconfig-paths": "^2.0.1",
     "web-vitals": "^3.5.2",
     "yup": "^1.4.0"
@@ -93,6 +92,7 @@
     "postcss": "^8.4.47",
     "prettier": "^3.2.5",
     "react-error-overlay": "6.0.11",
-    "tailwindcss": "^3.4.14"
+    "tailwindcss": "^3.4.14",
+    "vite": "^5.4.10"
   }
 }
