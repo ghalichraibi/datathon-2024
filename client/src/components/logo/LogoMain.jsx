@@ -4,10 +4,10 @@ import React from 'react';
 
 const Logo = () => {
   return (
-    <>
-      <svg width="300" height="100" viewBox="0 0 600 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div className="flex items-center justify-center min-h-screen">
+      <svg width="300" height="100" viewBox="0 0 600 120" fill="none" xmlns="http://www.w3.org/2000/svg">
         {/* Left-aligned geometric symbol */}
-        <g transform="translate(40, 15)">
+        <g transform="translate(40, 25)">
           {/* Main hexagon with premium line weight */}
           <path 
             d="M30 0 L60 17 L60 52 L30 69 L0 52 L0 17 Z" 
@@ -32,7 +32,7 @@ const Logo = () => {
         </g>
         
         {/* Text Group */}
-        <g transform="translate(120, 65)">
+        <g transform="translate(120, 75)">
           {/* Text "FINSIGHT" */}
           <text 
             fontFamily="Arial, sans-serif" 
@@ -57,7 +57,7 @@ const Logo = () => {
           </text>
         </g>
       </svg>
-    </>
+    </div>
   );
 };
 

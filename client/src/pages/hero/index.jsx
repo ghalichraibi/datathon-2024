@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LineChart, TrendingUp, FileText, Brain, ArrowRight, Upload } from 'lucide-react';
+import { TrendingUp, FileText, Brain, ArrowRight, Upload } from 'lucide-react';
+import LogoSection from 'components/logo';
 
 const HeroPage = () => {
   const [activeFeature, setActiveFeature] = useState(0);
@@ -75,12 +76,7 @@ const HeroPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-20">
             <div className="flex items-center">
-              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center space-x-2">
-                <LineChart className="h-8 w-8 text-blue-600" />
-                <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  Finsight AI
-                </span>
-              </motion.div>
+              <LogoSection to="/" />
             </div>
             <div className="flex items-center space-x-8">
               <motion.div
@@ -106,6 +102,7 @@ const HeroPage = () => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center space-x-2 group shadow-lg shadow-blue-500/20 cursor-pointer"
+                onClick={() => (window.location.href = 'upload')}
               >
                 <span>Get Started</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
