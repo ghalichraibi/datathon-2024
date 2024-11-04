@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Upload, File, X, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
+import { AnalysisService } from 'services/analysis.service';
 
 const UploadPage = () => {
   const [files, setFiles] = useState([]);
@@ -41,19 +42,14 @@ const UploadPage = () => {
 
   const handleUpload = useCallback(async () => {
     if (files.length === 0) return;
-
     setIsUploading(true);
-    
-    // Simuler le chargement et l'analyse
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
+    const result = await AnalysisService.analyzeReport(files);
+    console.log(result);
     setIsUploading(false);
     setIsComplete(true);
-
-    // Redirection après 3 secondes
-    setTimeout(() => {
-      navigate('/dashboard');
-    }, 3000);
+    // setTimeout(() => {
+    //   navigate('/dashboard');
+    // }, 3000);
   }, [files, navigate]);
 
   return (
