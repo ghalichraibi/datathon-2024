@@ -1,9 +1,8 @@
 import { Analysis } from 'interfaces/analysis.interface';
 
 export class AnalysisService {
-  public static analysis: Analysis;
-
-  private static baseUrl = 'http://127.0.0.1:5000';
+  private static analysis: Analysis;
+  private static baseUrl = import.meta.env.VITE_API_URL;
 
   public static async analyzeReport(reports: File[]): Promise<Analysis> {
     this.validateFiles(reports);
