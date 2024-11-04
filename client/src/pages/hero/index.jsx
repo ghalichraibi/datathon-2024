@@ -136,7 +136,7 @@ const HeroPage = () => {
                   onClick={() => (window.location.href = 'upload')}
                 >
                   <Upload className="w-5 h-5" />
-                  <span>Upload Reports</span>
+                  <span className="cursor-pointer">Upload Reports</span>
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
