@@ -17,6 +17,36 @@ Cet outil à été créé en Javascript React et python
 
 ---
 
-## Installation
+## Pré-requis
+
+- **Node.js** et **npm** pour le UI
+- **Python 3.x** et **pip** pour le back-end
+- **Virtual Environment** (recommandé pour gérer les dépendances python)
 
 
+## Setup pour le back-end / l'analyse de données
+
+```bash
+cd serveur
+```
+- Création d'un environnement virtuel
+```bash
+python3 -m venv venv
+source venv/bin/activate
+## Windows : `venv\Scripts\activate`
+```
+- Installation des dépendances Python:
+```bash
+pip install -r requirements.txt
+```
+
+### Initialisation du fichier .env
+
+Dans le dossier `serveur`, créer un nouveau fichier nommé `.env`. Ce fichier va contenir les clés AWS pour l'extraction de données.
+Le fichier doit avoir la structure suivante:
+```plaintext
+BUCKET_NAME = 'your-bucket-name'
+AWS_ACCESS_KEY_ID='your-aws-access-key-id'
+AWS_SECRET_ACCESS_KEY='your-secret-access-key'
+REGION_NAME='your-region-name'
+```
